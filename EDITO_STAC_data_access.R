@@ -1,9 +1,21 @@
 install.packages("rstac")
+install.packages("mregions2")
 library(rstac)
 library(purrr)
 library(arrow)
 library(dplyr)
 library(leaflet)
+library(mregions2)
+
+
+# PLAN --------------------------------------------------------------------
+
+# marine spatial plan
+# seabed habitats
+# shipwrecks -> to georeference, check with Sam!
+# OWF -> DONE
+# EEZ -> doesn't load
+# MSFD and Natura2000 boundaries
 
 # acces the STAC catalogue and get collections ----------------------------
 
@@ -29,7 +41,7 @@ c_bathy_list <- c_all %>% dplyr::filter(grepl("bathymetry", c_all$value))
 c_bathy_selection <- "emodnet-bathymetry"
 
 c_owf_list <- c_all %>% dplyr::filter(grepl("wind", c_all$value))
-c_owf_selection <- c("emodnet-wind_farm_year")
+c_owf_selection <- c("emodnet-wind_farm_power_mw")
 
 #col_shipwrecks <- col_all %>% dplyr::filter(grepl("ship_wreck", col_all$value))
 
@@ -68,25 +80,227 @@ owf_items <- stac_obj %>%
 
 # reading parquet does not work!
 owf_link_parquet_href <- owf_items$features[[1]]$assets$parquet$href
-owf <- arrow::read_parquet(owf_link_wmf_href, format = "parquet")
+owf <- arrow::read_parquet(owf_link_parquet_href, format = "parquet")
 
 # wms
-owf_link_wmf_href <- owf_items$features[[1]]$assets$wms$href
+owf_link_wms_href <- owf_items$features[[1]]$assets$wms$href
 
 wms_base <- "https://ows.emodnet-humanactivities.eu/wms" #TODO: make programmatically
-layer_name <- "windfarmspoly" #TODO: make programmatically
+wms_base_owf <- sub("\\?.*$", "", owf_link_wms_href)
+layer_name_owf <- "windfarmspoly" #TODO: make programmatically
 
-leaflet() %>% #TODO: understand what colors mean
-  addProviderTiles("CartoDB.Positron") %>%
+
+# legend
+
+legend_url <- paste0(
+  wms_base,
+  "?SERVICE=WMS&REQUEST=GetLegendGraphic",
+  "&FORMAT=image/png",
+  "&LAYER=", layer_name,
+  "&VERSION=1.1.1"
+)
+
+legend_url
+browseURL(legend_url)   # opens the legend image in your browser
+
+
+# EEZs --------------------------------------------------------------------
+
+mregions2::mrp_list %>% View()
+
+leaflet() %>%
   addWMSTiles(
-    baseUrl = wms_base,
-    layers  = layer_name,
+    baseUrl = "https://geo.vliz.be/geoserver/MarineRegions/wms",
+    layers = "eez",   # replace with your layer name
+    options = WMSTileOptions(
+      format = "image/png",
+      styles = "Polygons_greyoutline",
+      transparent = TRU
+    )
+    
+  )
+
+library(mregions2)
+library(leaflet)
+library(dplyr)
+
+m <- 
+  leaflet::leaflet() %>% 
+  addWMSTiles(
+    baseUrl = "https://geo.vliz.be/geoserver/MarineRegions/wms",
+    layers = "iho",   # replace with your layer name
+    options = WMSTileOptions(
+      format = "image/png",
+      styles = "Polygons_greyoutline",
+      transparent = T
+    )
+  )
+
+str(m)
+
+# Leaflet CRS definition for EPSG:4326 (degrees)
+
+
+crs4326 <- leafletCRS(
+  crsClass = "L.CRS.EPSG4326",
+  code = "EPSG:4326",
+  proj4def = "+proj=longlat +datum=WGS84 +no_defs",
+  resolutions = 1.40625 / (2^(0:18))
+)
+
+leaflet(options = leafletOptions(crs = crs4326)) %>%
+  fitBounds(-180, -63, 180, 87) %>%
+  addWMSTiles(
+    baseUrl = "https://geo.vliz.be/geoserver/MarineRegions/wms",
+    layers  = "MarineRegions:eez",
+    options = WMSTileOptions(
+      version     = "1.1.1",
+      format      = "image/png",
+      transparent = TRUE,
+      styles      = ""
+    )
+  )
+
+
+leaflet() %>%
+ # setView(0, 20, 2) %>%
+  
+  addWMSTiles(
+    baseUrl = "https://geo.vliz.be/geoserver/MarineRegions/wms",
+    layers  = "MarineRegions:eez",
+    options = WMSTileOptions(
+      version     = "1.1.1",
+      srs         = "EPSG:3857",   # 🔴 EXPLICITLY FORCE SRS
+      format      = "image/png",
+      transparent = TRUE,
+      styles      = ""
+    )
+  )
+# map ---------------------------------------------------------------------
+
+
+
+
+# map
+
+library(leaflet)
+library(magrittr)
+
+m <- leaflet() %>%
+  # --- Base map (background) ---
+  addProviderTiles("CartoDB.Positron", group = "CartoDB.Positron") %>%
+  
+  # --- Optional: Bathymetry as a BASE layer (select one base at a time) ---
+  addWMSTiles(
+    baseUrl = wms_base_bathy,
+    layers  = layer_name_bathy,
     options = WMSTileOptions(
       format = "image/png",
       transparent = TRUE
-      # You can add: opacity = 0.7
-    )
+    ),
+    group = "EMODnet Bathymetry"
+  ) %>%
+  
+  # --- Overlays (toggle on/off) ---
+  addWMSTiles(
+    baseUrl = wms_base_owf,
+    layers  = layer_name_owf,
+    options = WMSTileOptions(
+      format = "image/png",
+      transparent = TRUE
+    ),
+    group = "OWF"  # IMPORTANT: group belongs here (not inside WMSTileOptions)
+  ) %>%
+  
+  addWMSTiles(
+    baseUrl = "https://geo.vliz.be/geoserver/MarineRegions/wms",
+    layers  = "eez",
+    options = WMSTileOptions(
+      format = "image/png",
+      styles = "Polygons_greyoutline",
+      transparent = F),
+    group = "EEZ"
+  ) %>%
+  
+  # --- Legend / control ---
+  addControl(
+    html = paste0(
+      '<div style="background:white;padding:6px;border-radius:4px;">',
+      '<div style="font-weight:600;margin-bottom:4px;">Wind farms</div>',
+      '<img src="', legend_url, '" />',
+      '</div>'
+    ),
+    position = "bottomright"
+  ) %>%
+  
+  # --- Layer switcher ---
+  addLayersControl(
+    baseGroups    = c("EMODnet Bathymetry", "CartoDB.Positron", "OWF", "EEZ"),
+    overlayGroups = c("OWF", "EEZ"),
+    options       = layersControlOptions(collapsed = FALSE)
   )
+
+m
+
+# tests
+leaflet() %>%
+  addWMSTiles(
+    baseUrl = "https://geo.vliz.be/geoserver/MarineRegions/wms",
+    layers  = "eez",   # FULL qualified layer name
+    options = WMSTileOptions(
+      format      = "image/png",
+      transparent = TRUE,
+      styles      = "",              # empty style ensures default drawing
+      version     = "1.1.1"          # use WMS 1.1.1 for Leaflet compatibility
+    ),
+    group = "EEZ"
+  )
+
+leaflet() %>%
+  #addTiles() %>%
+  addWMSTiles(
+    baseUrl = "https://geo.vliz.be/geoserver/Belgium/wms",
+    layers  = "Belgium"
+  )
+
+# leaflet() %>% 
+#   addProviderTiles("CartoDB.Positron", group = "CartoDB.Positron") %>%
+#   addWMSTiles(
+#     baseUrl = wms_base,
+#     layers  = layer_name,
+#     options = WMSTileOptions(
+#       format = "image/png",
+#       transparent = TRUE,
+#       group = "OWF"
+#     )) %>%
+#       addWMSTiles(
+#         baseUrl = "https://geo.vliz.be/geoserver/MarineRegions/wms",
+#         layers = "eez",   # replace with your layer name
+#         options = WMSTileOptions(
+#           format = "image/png",
+#           styles = "Polygons_greyoutline",
+#           transparent = TRUE,
+#           group = "EEZ"
+#         )) %>%
+#     addWMSTiles(
+#       baseUrl = wms_base_bathy,
+#       layers  = layer_name_bathy,
+#       options = WMSTileOptions(format = "image/png", transparent = TRUE),
+#       group = "EMODnet Bathymetry"
+#     ) %>%
+#   addControl(
+#     html = paste0('<div style="background:white;padding:0px;border-radius:1px;">',
+#                   '<div style="font-weight:600;margin-bottom:1px;">Wind farms</div>',
+#                   '<img src="', legend_url, '" />',
+#                   '</div>'),
+#     position = "bottomright"
+#   ) %>%
+#   addLayersControl(
+#     baseGroups = c(
+#       "CartoDB.Positron", "EMODnet Bathymetry"),
+#     overlayGroups = c("OWF", "EEZ"),
+#     options = layersControlOptions(collapsed = FALSE)
+#   )
 
 # bathymetry --------------------------------------------------------------
 
@@ -134,7 +348,7 @@ wms_href
 # Leaflet needs:
 #   - a base WMS URL (usually the part before the '?')
 #   - one or more layer names (often you can discover these from GetCapabilities)
-wms_base <- sub("\\?.*$", "", wms_href)
+wms_base_bathy <- sub("\\?.*$", "", wms_href)
 
 # GetCapabilities URL (helps you discover the 'layers' name)
 caps_url <- paste0(wms_base, "?service=WMS&request=GetCapabilities")
@@ -143,7 +357,7 @@ browseURL(caps_url)
 # 3) Replace this with a real layer name you see in GetCapabilities
 layer_name <- "emodnet:mean"
 layer_name <- "emodnet:mean_multicolour"
-layer_name <- "mean_atlas_land"
+layer_name_bathy <- "mean_atlas_land"
 
 leaflet() %>%
   addProviderTiles("CartoDB.Positron") %>%
