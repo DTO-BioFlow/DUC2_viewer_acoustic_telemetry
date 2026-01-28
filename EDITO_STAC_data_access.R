@@ -20,6 +20,7 @@ library(rstac)
 library(purrr)
 library(arrow)
 library(dplyr)
+library(lubridate)
 library(leaflet)
 
 
@@ -69,6 +70,7 @@ c_all <- c_obj$collections |> vapply(`[[`, character(1), "id") %>% as_tibble()
 # this is the data that DUC4.2 is partially based upon. Here, the data will be 
 # 1) queried in .parquet format, 2) summarised (to #detections and #individuals per day),
 # and 3) saved in "./data/"
+# TODO: save tag serial numbers of individuals to calculate monthly stats from (num individuals per month)
 
 dataset_name <- "PhD_Goossens"
 etn_collection <- "animal_tracking_datasets"
@@ -95,24 +97,62 @@ for (feature in etn_items$features) {
 # Print the matching href
 #print(etn_dataset_href)
 
-etn_dataset <- arrow::read_parquet(etn_dataset_href, format = "parquet")
+# etn_dataset <- arrow::read_parquet(etn_dataset_href, format = "parquet")
+## use etn data subset as long as .parquet is not working
+
+etn_dataset <- readRDS("./data/detections.rds")
+
 # start <- "2021-01-01" %>% as.POSIXct()
 # end <- "2022-12-31" %>% as.POSIXct()
 
 etn_daily_sum <- 
   etn_dataset %>% 
   #dplyr::filter(datetime %>% between(start, end)) %>%
-  dplyr::mutate(date = datetime %>% as.Date()) %>%
+  dplyr::mutate(date = date_time %>% as.Date()) %>%
+  # dplyr::mutate(date = datetime %>% as.Date()) %>% # for STAC dataset
   dplyr::group_by(date, station_name) %>%
-  dplyr::summarise(latitude = mean(latitude, na.rm = T),
-                   longitude = mean(longitude, na.rm = T),
-                   n_detections = n(),
-                   n_individuals = tag_serial_number %>% unique() %>% length())
+  dplyr::summarise(
+     # latitude = mean(latitude, na.rm = T),
+     # longitude = mean(longitude, na.rm = T),
+     deploy_latitude = mean(deploy_latitude, na.rm = T),
+     deploy_longitude = mean(deploy_longitude, na.rm = T),
+     n_detections = n(),
+     n_individuals = tag_serial_number %>% unique() %>% length()
+     # , tag_serial_nums = paste0(tag_serial_number %>% unique(), collapse = ", ") 
+                     )
 
 # save as .RDS
 etn_daily_sum_path <- "./data/etn_sum_seabass.rds"
 saveRDS(etn_daily_sum, etn_daily_sum_path)
 
+etn_monthyear_individual_sum <- 
+  etn_dataset %>% 
+  #dplyr::filter(datetime %>% between(start, end)) %>%
+  dplyr::mutate(monthyear = date_time %>% floor_date(unit = 'months'))%>%
+  # get out total n of detection for that month
+  dplyr::group_by(monthyear) %>%
+  dplyr::mutate(n_detections_monthyear = n())%>%
+  dplyr::ungroup() %>%
+  ### get out total n of detections per station per month
+  dplyr::group_by(monthyear, station_name) %>%
+  dplyr::mutate(n_detections_monthyear_station = n())%>%
+  dplyr::ungroup() %>%
+  # dplyr::mutate(date = datetime %>% as.Date()) %>% # for STAC dataset
+  dplyr::group_by(monthyear, station_name, tag_serial_number) %>%
+  dplyr::summarise(
+    # latitude = mean(latitude, na.rm = T),
+    # longitude = mean(longitude, na.rm = T),
+    deploy_latitude = mean(deploy_latitude, na.rm = T),
+    deploy_longitude = mean(deploy_longitude, na.rm = T),
+    n_detections = n(),
+    n_detections_monthyear = n_detections_monthyear %>% unique(), # %>% paste0(collapse = ", "),
+    n_detections_monthyear_station = n_detections_monthyear_station %>% unique(), # %>% paste0(collapse = ", ")
+    # , tag_serial_nums = paste0(tag_serial_number %>% unique(), collapse = ", ") 
+  ) 
+
+# save as .RDS
+etn_monthyear_individual_sum_path <- "./data/etn_sum_seabass_monthyear_indivdual.rds"
+saveRDS(etn_monthyear_individual_sum, etn_monthyear_individual_sum_path)
 
 # appending row to wms_registry
 wms_registry <- add_row(
@@ -675,12 +715,12 @@ rm(c_shipwrecks_emodnet_list, shipwrecks_emodnet_items, shipwrecks_emodnet_layer
 # # 
 # # 
 # # wms
-# seabedhabitats_wms_link <- seabedhabitats_items$features[[1]]$assets$wms$href
+seabedhabitats_wms_link <- "https://ows.emodnet-seabedhabitats.eu/geoserver/emodnet_view/wms?SERVICE=WMS&REQUEST=GetMap&LAYERS=eusm_eunis2019_group&VERSION=1.3.0&CRS=CRS:84&BBOX=-180,-90,180,90&WIDTH=800&HEIGHT=600&FORMAT=image/png" #seabedhabitats_items$features[[1]]$assets$wms$href
 # seabedhabitats_wms_link
 # browseURL(seabedhabitats_wms_link)
-# seabedhabitats_wms_base <- sub("\\?.*$", "", seabedhabitats_wms_link)
-# seabedhabitats_layer_name <- sub(".*LAYERS=([A-Za-z0-9_:]+).*", "\\1", seabedhabitats_wms_link)
-# 
+seabedhabitats_wms_base <- sub("\\?.*$", "", seabedhabitats_wms_link)
+seabedhabitats_layer_name <- sub(".*LAYERS=([A-Za-z0-9_:]+).*", "\\1", seabedhabitats_wms_link)
+
 # # parquet
 # seabedhabitats_parquet_link <- seabedhabitats_items$features[[1]]$assets$parquet$href
 # seabedhabitats_parquet <- arrow::read_parquet(seabedhabitats_parquet_link, format = "parquet")
@@ -713,44 +753,58 @@ rm(c_shipwrecks_emodnet_list, shipwrecks_emodnet_items, shipwrecks_emodnet_layer
 # # dbDisconnect(con, shutdown = TRUE)
 # # 
 # 
-# 
 # #library(sf)
 # #seabedhabitats_p_sf <- sf::st_as_sf(seabedhabitats_parquet)
 # 
 # 
-# ## legend
-# seabedhabitats_legend_url <- paste0(
-#   seabedhabitats_wms_base,
-#   "?SERVICE=WMS&REQUEST=GetLegendGraphic",
-#   "&FORMAT=image/png",
-#   "&LAYER=", seabedhabitats_layer_name,
-#   "&VERSION=1.1.1"
-# )
-# 
+## legend
+seabedhabitats_legend_url <- paste0(
+  seabedhabitats_wms_base,
+  "?SERVICE=WMS&REQUEST=GetLegendGraphic",
+  "&FORMAT=image/png",
+  "&LAYER=", seabedhabitats_layer_name,
+  "&VERSION=1.1.1"
+)
+
 # browseURL(seabedhabitats_legend_url)
 # 
-# # test map
-# leaflet() %>%
-#   setView(3, 51.5, zoom = 8) %>%
-#   addTiles() %>%
-#   addWMSTiles(
-#     baseUrl = seabedhabitats_wms_base,
-#     layers  = seabedhabitats_layer_name,
-#     options = WMSTileOptions(
-#       format = "image/png",
-#       transparent = T,
-#       opacity = 1
-#     )) %>%
-#   addControl(
-#     html = paste0(
-#       '<div style="background:white;padding:6px;border-radius:4px;">',
-#       '<div style="font-weight:600;margin-bottom:4px;">seabedhabitats Areas</div>',
-#       '<img src="', seabedhabitats_legend_url, '" />',
-#       '</div>'
-#     ),position = "bottomright"
-#   )
+# test map
+leaflet() %>%
+  setView(3, 51.5, zoom = 8) %>%
+  addTiles() %>%
+  addWMSTiles(
+    baseUrl = seabedhabitats_wms_base,
+    layers  = seabedhabitats_layer_name,
+    options = WMSTileOptions(
+      format = "image/png",
+      transparent = T,
+      opacity = 1
+    )) %>%
+  addControl(
+    html = paste0(
+      '<div style="background:white;padding:6px;border-radius:4px;">',
+      '<div style="font-weight:600;margin-bottom:4px;">seabedhabitats Areas</div>',
+      '<img src="', seabedhabitats_legend_url, '" />',
+      '</div>'
+    ),position = "bottomright"
+  )
 
 
+# appending row to wms_registry
+wms_registry <- add_row(
+  wms_registry,
+  env_data_name = "seabedhabitats",
+  collection_name = "",
+  wms_link    = seabedhabitats_wms_link,
+  wms_base    = seabedhabitats_wms_base,
+  wms_layer_name  = seabedhabitats_layer_name,
+  legend_link = seabedhabitats_legend_url,
+  .added_at        = Sys.time()) %>%
+  arrange(desc(.added_at)) %>%
+  distinct(env_data_name, wms_link, wms_layer_name, .keep_all = TRUE) 
+
+# remove obj we no longer need
+rm(seabedhabitats_layer_name, seabedhabitats_wms_link, seabedhabitats_wms_base, seabedhabitats_legend_url)
 
 
 
@@ -786,37 +840,37 @@ wms_registry <- add_row(
   arrange(desc(.added_at)) %>%
   distinct(env_data_name, wms_link, wms_layer_name, .keep_all = TRUE) 
 
-## BPNS seabed habitats --------------------------------------------------------------
+## BPNS seabed substrates --------------------------------------------------------------
 # for now from the RBINS geoserver: https://spatial.naturalsciences.be/geoserver/web/wicket/bookmarkable/org.geoserver.web.demo.MapPreviewPage?0&filter=false
 
 # wms
-seabedhabitats_wms_link <- "https://spatial.naturalsciences.be/geoserver/od_nature/wms?service=WMS&version=1.1.0&request=GetMap&layers=od_nature%3AHabitat_BPNS_Seafloor&bbox=3783778.2435288355%2C3135783.371861253%2C3859575.3740788964%2C3222401.382971901&width=672&height=768&srs=EPSG%3A3035&styles=&format=application/openlayers"
-seabedhabitats_wms_base <- "https://spatial.naturalsciences.be/geoserver/od_nature/wms"
-seabedhabitats_layer_name <- "od_nature:seabed_substrate_map"
+seabedsubstrates_wms_link <- "https://spatial.naturalsciences.be/geoserver/od_nature/wms?service=WMS&version=1.1.0&request=GetMap&layers=od_nature%3Asubstrate_BPNS_Seafloor&bbox=3783778.2435288355%2C3135783.371861253%2C3859575.3740788964%2C3222401.382971901&width=672&height=768&srs=EPSG%3A3035&styles=&format=application/openlayers"
+seabedsubstrates_wms_base <- "https://spatial.naturalsciences.be/geoserver/od_nature/wms"
+seabedsubstrates_layer_name <- "od_nature:seabed_substrate_map"
 
 ## legend
-seabedhabitats_legend_url <- paste0(
-  seabedhabitats_wms_base,
+seabedsubstrates_legend_url <- paste0(
+  seabedsubstrates_wms_base,
   "?SERVICE=WMS&REQUEST=GetLegendGraphic",
   "&FORMAT=image/png",
-  "&LAYER=", seabedhabitats_layer_name,
+  "&LAYER=", seabedsubstrates_layer_name,
   "&VERSION=1.1.1"
 )
 
 wms_registry <- add_row(
   wms_registry,
-  env_data_name = "seabedhabitats",
+  env_data_name = "seabedsubstrates",
   collection_name = "",
-  wms_link    = seabedhabitats_wms_link,
-  wms_base    = seabedhabitats_wms_base,
-  wms_layer_name  = seabedhabitats_layer_name,
-  legend_link = seabedhabitats_legend_url,
+  wms_link    = seabedsubstrates_wms_link,
+  wms_base    = seabedsubstrates_wms_base,
+  wms_layer_name  = seabedsubstrates_layer_name,
+  legend_link = seabedsubstrates_legend_url,
   .added_at        = Sys.time()) %>%
   arrange(desc(.added_at)) %>%
   distinct(env_data_name, wms_link, wms_layer_name, .keep_all = TRUE) 
 
 # remove obj we no longer need
-rm(seabedhabitats_layer_name, seabedhabitats_wms_link, seabedhabitats_wms_base, seabedhabitats_legend_url)
+rm(seabedsubstrates_layer_name, seabedsubstrates_wms_link, seabedsubstrates_wms_base, seabedsubstrates_legend_url)
 
 # SST - TODO --------------------------------------------------------------
 

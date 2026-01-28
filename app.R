@@ -13,7 +13,8 @@ blue_dark <- "#11395a"
 
 # load map with all environmental WMS layers ------------------------------
 
-source("leaflet_env_data_layers.R")
+source("./maps/02_map_environmental_layers.R")
+source("./maps/03_map_acoustic_detections.R")
 
 ui <- fluidPage(
   
@@ -188,10 +189,7 @@ server <- function(input, output, session) {
   
   ## raw acoustic telemetry data map
   output$seabass_data_map <- renderLeaflet({
-    leaflet() |>
-      addTiles() |>
-      setView(lng = 2.5, lat = 51.2, zoom = 6) |>
-      addMarkers(lng = 2.5, lat = 51.2, popup = "Example point2!")
+    map_acoustic_detections
   })
   
   ## environmental layers map (with layers (mostly) from EDITO STAC catalogue)
