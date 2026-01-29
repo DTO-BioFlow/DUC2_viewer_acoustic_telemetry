@@ -6,6 +6,8 @@ library(leaflet.minicharts)
 library(dplyr)
 library(tidyr)
 library(htmlwidgets)
+library(RColorBrewer)
+
 
 # load the base map
 map_base <- readRDS("./maps/01_map_base.rds")
@@ -52,8 +54,46 @@ chartdata_all <- as.matrix(anim_df[, ids])      # nrow = nStations * nMonths
 
 # custom legend -----------------------------------------
 
-# enough colors for all ids
-id_palette <- setNames(grDevices::hcl.colors(length(ids), "Dark 3"), ids)
+permute_spread <- function(n) {
+  lo <- 1:ceiling(n/2)
+  hi <- n:floor(n/2 + 1)
+  as.vector(rbind(lo, hi))[1:n]
+}
+
+# Candidate pool (make it long)
+base_pool <- c(
+  brewer.pal(8, "Set2"),
+  brewer.pal(12, "Paired"),
+  brewer.pal(8,  "Dark2"),
+  brewer.pal(9,  "Set1")#,
+  # brewer.pal(12, "Set3")   # optional extra pool
+)
+
+# Helper: drop grey-ish colors (low chroma in HCL space)
+drop_greys <- function(cols, min_chroma = 25) {
+  rgb <- t(grDevices::col2rgb(cols)) / 255
+  lab <- grDevices::convertColor(rgb, from = "sRGB", to = "Lab")
+  a <- lab[, 2]
+  b <- lab[, 3]
+  chroma <- sqrt(a^2 + b^2)   # distance from grey axis
+  cols[chroma >= min_chroma]
+}
+
+# Filter, then ensure we have enough
+pool_filtered <- drop_greys(base_pool, min_chroma = 25)
+
+# If filtering removed too many, relax the threshold a bit
+if (length(pool_filtered) < length(ids)) {
+  pool_filtered <- drop_greys(base_pool, min_chroma = 15)
+}
+
+# Repeat until long enough
+base_cols <- rep(pool_filtered, length.out = length(ids))
+
+# Spread neighbors
+perm <- permute_spread(length(ids))
+id_palette <- setNames(base_cols[perm], ids)
+
 
 make_legend_html <- function(id_vec) {
   if (length(id_vec) == 0) {
@@ -100,8 +140,8 @@ ui <- fluidPage(
   }
 
   .idLegendCtrl .id-legend-swatch{
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     display: inline-block;
     border-radius: 2px;
     border: 1px solid rgba(0,0,0,0.15);
@@ -217,44 +257,29 @@ server <- function(input, output, session) {
 
   output$map <- renderLeaflet({
     init_prods <- ids
+    init_mat <- as.matrix(anim_df[, init_prods, drop = FALSE])
+    storage.mode(init_mat) <- "numeric"
     
-    # init_mat <- as.matrix(anim_df[, init_prods, drop = FALSE])
-    # storage.mode(init_mat) <- "numeric"
+    pal_init <- unname(id_palette[colnames(init_mat)])  # aligned to column order
     
-    # pal_init <- unname(id_palette[colnames(init_mat)])  # <- aligned to columns
-    
-    
-    leaflet() %>%
-      addTiles() %>%
-      setView(lng = mean(stations$lon), lat = mean(stations$lat), zoom = 11) %>%
-      addCircleMarkers(
-        data = stations,
-        lng = ~lon, lat = ~lat,
-        radius = 4, stroke = FALSE, fillOpacity = 1, fillColor = "grey"
-      ) %>%
+    # leaflet() %>%
+    #   addTiles() %>%
+    #   setView(lng = mean(stations$lon), lat = mean(stations$lat), zoom = 11) %>%
+    map_base %>%
+      addCircleMarkers(data = stations, lng = ~lon, lat = ~lat,
+                       radius = 4, stroke = FALSE, fillOpacity = 1, fillColor = "grey") %>%
       addMinicharts(
         lng = stations$lon,
         lat = stations$lat,
         layerId = stations$station_name,
-        # type = "pie",
-        
-        chartdata = anim_df[, init_prods, drop = FALSE],
-        # chartdata = init_mat,
-        # colorPalette = pal_init,
+        chartdata = init_mat,
+        type = "pie",
+        colorPalette = pal_init,          # <-- THIS fixes the mismatch
         legend = FALSE,
-        
-        # This enables the time slider/play control
         time = anim_df$month,
-        # timeFormat = "%Y-%m",
-        # initialTime = min(time_all),
-        # # This enables the time slider/play control
-        # time = time_all,
-        # timeFormat = "%Y-%m",
-        # initialTime = min(time_all),
-        
-        width = 45, #60 * sqrt(anim_df$n_detections_monthyear_station) / sqrt(anim_df$n_detections_monthyear),
+        width = 45,
         height = 45
-      )  %>%
+      ) %>%
       addControl(
         html = HTML(make_legend_html(init_prods)),
         position = "topleft",
@@ -263,7 +288,6 @@ server <- function(input, output, session) {
       ) %>%
       onRender("
       function(el, x){
-        // make sure scroll on legend doesn't zoom the map
         var node = el.querySelector('.idLegendCtrl .id-legend-scroll');
         if(node && window.L && L.DomEvent){
           L.DomEvent.disableScrollPropagation(node);
@@ -272,6 +296,66 @@ server <- function(input, output, session) {
       }
     ")
   })
+
+# map with scrollable legend but colors not mapped to piecharts -----------
+
+  # output$map <- renderLeaflet({
+  #   init_prods <- ids
+  #   
+  #   # init_mat <- as.matrix(anim_df[, init_prods, drop = FALSE])
+  #   # storage.mode(init_mat) <- "numeric"
+  #   
+  #   # pal_init <- unname(id_palette[colnames(init_mat)])  # <- aligned to columns
+  #   
+  #   
+  #   leaflet() %>%
+  #     addTiles() %>%
+  #     setView(lng = mean(stations$lon), lat = mean(stations$lat), zoom = 11) %>%
+  #     addCircleMarkers(
+  #       data = stations,
+  #       lng = ~lon, lat = ~lat,
+  #       radius = 4, stroke = FALSE, fillOpacity = 1, fillColor = "grey"
+  #     ) %>%
+  #     addMinicharts(
+  #       lng = stations$lon,
+  #       lat = stations$lat,
+  #       layerId = stations$station_name,
+  #       # type = "pie",
+  #       
+  #       chartdata = anim_df[, init_prods, drop = FALSE],
+  #       # chartdata = init_mat,
+  #       # colorPalette = pal_init,
+  #       legend = FALSE,
+  #       
+  #       # This enables the time slider/play control
+  #       time = anim_df$month,
+  #       # timeFormat = "%Y-%m",
+  #       # initialTime = min(time_all),
+  #       # # This enables the time slider/play control
+  #       # time = time_all,
+  #       # timeFormat = "%Y-%m",
+  #       # initialTime = min(time_all),
+  #       
+  #       width = 45, #60 * sqrt(anim_df$n_detections_monthyear_station) / sqrt(anim_df$n_detections_monthyear),
+  #       height = 45
+  #     )  %>%
+  #     addControl(
+  #       html = HTML(make_legend_html(init_prods)),
+  #       position = "topleft",
+  #       layerId = "idLegend",
+  #       className = "idLegendCtrl"
+  #     ) %>%
+  #     onRender("
+  #     function(el, x){
+  #       // make sure scroll on legend doesn't zoom the map
+  #       var node = el.querySelector('.idLegendCtrl .id-legend-scroll');
+  #       if(node && window.L && L.DomEvent){
+  #         L.DomEvent.disableScrollPropagation(node);
+  #         L.DomEvent.disableClickPropagation(node);
+  #       }
+  #     }
+  #   ")
+  # })
   
   observeEvent(input$prev_month, {
     i <- month_idx()
@@ -318,28 +402,69 @@ server <- function(input, output, session) {
   #   
   # }, ignoreInit = TRUE)
   
+  observeEvent(list(input$prods, input$labels), {#, input$type
     
-  observe({
-    prods <- input$prods
-
-    data <- if (length(prods) == 0) {
-      matrix(0, nrow = nrow(chartdata_all), ncol = 1)
+    # keep stable order (ids order), not click order
+    prods <- ids[ids %in% input$prods]
+    
+    if (length(prods) == 0) {
+      data_mat <- matrix(0, nrow = nrow(anim_df), ncol = 1)
+      colnames(data_mat) <- "none"
+      pal <- "#999999"
     } else {
-      as.matrix(anim_df[, prods, drop = FALSE])
+      data_mat <- as.matrix(anim_df[, prods, drop = FALSE])
+      storage.mode(data_mat) <- "numeric"
+      pal <- unname(id_palette[colnames(data_mat)])  # aligned to columns
     }
-    maxValue <- max(as.matrix(data))
-
+    
     leafletProxy("map", session) %>%
       updateMinicharts(
         layerId = stations$station_name,
-        chartdata = data,
-        maxValues = maxValue,
-        type = if (ncol(data) < 2) "polar-area" else input$type,
+        chartdata = data_mat,
+        maxValues = max(1, max(data_mat, na.rm = TRUE)),
+        type = "pie", #input$type,
         showLabels = input$labels,
-        legend = FALSE,
-        time = anim_df$month
+        colorPalette = pal,     # <-- THIS keeps colors consistent on updates
+        legend = FALSE #,
+        # time = anim_df$month
+        # IMPORTANT: do NOT pass time= here
       )
-  })
+    
+    # legend to match current selection/order:
+    leafletProxy("map", session) %>%
+      removeControl("idLegend") %>%
+      addControl(
+        html = HTML(make_legend_html(prods)),
+        position = "topleft",
+        layerId = "idLegend",
+        className = "idLegendCtrl"
+      )
+
+  }, ignoreInit = TRUE)
+  
+  
+# scrollable legend but no mapping to piecharts ---------------------------
+  # observe({
+  #   prods <- input$prods
+  # 
+  #   data <- if (length(prods) == 0) {
+  #     matrix(0, nrow = nrow(chartdata_all), ncol = 1)
+  #   } else {
+  #     as.matrix(anim_df[, prods, drop = FALSE])
+  #   }
+  #   maxValue <- max(as.matrix(data))
+  # 
+  #   leafletProxy("map", session) %>%
+  #     updateMinicharts(
+  #       layerId = stations$station_name,
+  #       chartdata = data,
+  #       maxValues = maxValue,
+  #       type = if (ncol(data) < 2) "polar-area" else input$type,
+  #       showLabels = input$labels,
+  #       legend = FALSE,
+  #       time = anim_df$month
+  #     )
+  # })
 }
 
 shinyApp(ui, server)
