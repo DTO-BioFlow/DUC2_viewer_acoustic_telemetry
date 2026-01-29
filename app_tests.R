@@ -47,11 +47,68 @@ anim_df <- expand_grid(
   left_join(stations, by = "station_name")
 
 chartdata_all <- as.matrix(anim_df[, ids])      # nrow = nStations * nMonths
-time_all <- anim_df$month                       # same length as nrow(chartdata_all)
+# time_all <- anim_df$month                       # same length as nrow(chartdata_all)
+
+
+# custom legend -----------------------------------------
+
+# enough colors for all ids
+id_palette <- setNames(grDevices::hcl.colors(length(ids), "Dark 3"), ids)
+
+make_legend_html <- function(id_vec) {
+  if (length(id_vec) == 0) {
+    return("<div class='id-legend-scroll'><i>No individuals detected</i></div>")
+  }
+  items <- paste0(
+    "<div style='display:flex;align-items:center;gap:6px;margin:2px 0;'>",
+    "<span style='width:12px;height:12px;display:inline-block;background:", id_palette[id_vec], ";'></span>",
+    "<span>", id_vec, "</span>",
+    "</div>",
+    collapse = ""
+  )
+  paste0("<div class='id-legend-scroll'>", items, "</div>")
+}
+
 
 # --- Shiny app ------------------------------------------------------
 
+
 ui <- fluidPage(
+  
+  # legend CSS -> todo outsource  ------------
+  
+  tags$head(tags$style(HTML("
+  .idLegendCtrl{
+    background: white;
+    padding: 10px 12px;
+    border-radius: 6px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+  }
+
+  .idLegendCtrl .id-legend-scroll{
+    width: 150px;        /* <- make legend panel wider */
+    max-height: 600px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .idLegendCtrl .id-legend-item{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0;
+  }
+
+  .idLegendCtrl .id-legend-swatch{
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    border-radius: 2px;
+    border: 1px solid rgba(0,0,0,0.15);
+    flex: 0 0 auto;
+  }
+"))),
+  
   titlePanel("Leaflet minicharts time animation (MWE)"),
   sidebarLayout(
     sidebarPanel(height = 2000,
@@ -72,6 +129,9 @@ server <- function(input, output, session) {
   
   month_idx <- reactiveVal(1)
   
+
+# summary for selected month ----------------------------------------------
+
   output$month_summary <- renderUI({
     
     i <- month_idx()
@@ -115,7 +175,6 @@ server <- function(input, output, session) {
     n_indiv <- as.integer(n_indiv[1])
     if (is.na(n_indiv)) n_indiv <- 0
     
-    
         
     total_det <- sum(df_m$n_detections, na.rm = TRUE)
     
@@ -152,11 +211,18 @@ server <- function(input, output, session) {
     )
   })
   
-  
-  
-  
+
+
+# leaflet map -------------------------------------------------------------
+
   output$map <- renderLeaflet({
     init_prods <- ids
+    
+    # init_mat <- as.matrix(anim_df[, init_prods, drop = FALSE])
+    # storage.mode(init_mat) <- "numeric"
+    
+    # pal_init <- unname(id_palette[colnames(init_mat)])  # <- aligned to columns
+    
     
     leaflet() %>%
       addTiles() %>%
@@ -172,10 +238,10 @@ server <- function(input, output, session) {
         layerId = stations$station_name,
         # type = "pie",
         
-        # Start with all ids selected
         chartdata = anim_df[, init_prods, drop = FALSE],
-        legendPosition = "topleft",
-        # legend = F,
+        # chartdata = init_mat,
+        # colorPalette = pal_init,
+        legend = FALSE,
         
         # This enables the time slider/play control
         time = anim_df$month,
@@ -188,37 +254,20 @@ server <- function(input, output, session) {
         
         width = 45, #60 * sqrt(anim_df$n_detections_monthyear_station) / sqrt(anim_df$n_detections_monthyear),
         height = 45
+      )  %>%
+      addControl(
+        html = HTML(make_legend_html(init_prods)),
+        position = "topleft",
+        layerId = "idLegend",
+        className = "idLegendCtrl"
       ) %>%
       onRender("
-      function(el, x) {
-        function styleLegend() {
-          // find the leaflet control that contains id_ labels
-          var ctrls = el.querySelectorAll('.leaflet-control');
-          var legend = null;
-          for (var i = 0; i < ctrls.length; i++) {
-            var txt = (ctrls[i].textContent || '');
-            if (txt.match(/\\bid_\\w+/)) { legend = ctrls[i]; break; }
-          }
-          if (!legend) return false;
-
-          legend.style.maxHeight = '300px';
-          legend.style.overflowY = 'auto';
-          legend.style.overflowX = 'hidden';
-          legend.style.maxWidth  = '500px';
-
-          if (window.L && L.DomEvent) {
-            L.DomEvent.disableClickPropagation(legend);
-            L.DomEvent.disableScrollPropagation(legend);
-          }
-          return true;
-        }
-
-        // try now, else observe DOM changes until it appears
-        if (!styleLegend()) {
-          var obs = new MutationObserver(function() {
-            if (styleLegend()) obs.disconnect();
-          });
-          obs.observe(el, { childList: true, subtree: true });
+      function(el, x){
+        // make sure scroll on legend doesn't zoom the map
+        var node = el.querySelector('.idLegendCtrl .id-legend-scroll');
+        if(node && window.L && L.DomEvent){
+          L.DomEvent.disableScrollPropagation(node);
+          L.DomEvent.disableClickPropagation(node);
         }
       }
     ")
@@ -241,17 +290,45 @@ server <- function(input, output, session) {
         initialTime = months[month_idx()]   # <-- jump the time slider to this month
       )
   }, ignoreInit = TRUE)
+
+  # observeEvent(list(input$prods, input$labels), {
+  #   
+  #   # keep columns in stable order (ids order), not click-order
+  #   prods <- ids[ids %in% input$prods]
+  #   
+  #   if (length(prods) == 0) {
+  #     data_mat <- matrix(0, nrow = nrow(anim_df), ncol = 1)
+  #     colnames(data_mat) <- "none"
+  #     pal <- "#999999"
+  #   } else {
+  #     data_mat <- as.matrix(anim_df[, prods, drop = FALSE])
+  #     storage.mode(data_mat) <- "numeric"
+  #     pal <- unname(id_palette[colnames(data_mat)])   # <- aligned to columns
+  #   }
+  #   
+  #   leafletProxy("map", session) %>%
+  #     updateMinicharts(
+  #       layerId = stations$station_name,
+  #       chartdata = data_mat,
+  #       maxValues = max(1, max(data_mat, na.rm = TRUE)),
+  #       type = "pie",
+  #       showLabels = input$labels,
+  #       colorPalette = pal
+  #     )
+  #   
+  # }, ignoreInit = TRUE)
   
+    
   observe({
     prods <- input$prods
-    
+
     data <- if (length(prods) == 0) {
       matrix(0, nrow = nrow(chartdata_all), ncol = 1)
     } else {
       as.matrix(anim_df[, prods, drop = FALSE])
     }
     maxValue <- max(as.matrix(data))
-    
+
     leafletProxy("map", session) %>%
       updateMinicharts(
         layerId = stations$station_name,
@@ -259,6 +336,7 @@ server <- function(input, output, session) {
         maxValues = maxValue,
         type = if (ncol(data) < 2) "polar-area" else input$type,
         showLabels = input$labels,
+        legend = FALSE,
         time = anim_df$month
       )
   })
