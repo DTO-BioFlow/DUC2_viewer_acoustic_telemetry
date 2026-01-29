@@ -45,11 +45,11 @@ map_acoustic_detections <-
 map_acoustic_detections
 
 # tests -------------------------------------------------------------------
-
+# 
 # deployments <- readRDS("./data/deployments.rds")
 # etn_monthyear_individual_sum <- readRDS("./data/etn_sum_seabass_monthyear_indivdual.rds")
 # 
-# selected_date <- "2021-10-01"
+# # selected_date <- "2021-10-01"
 # 
 # deployments_minichart <- # TODO: put only deployments active during selected time period
 #   deployments %>%
@@ -58,9 +58,9 @@ map_acoustic_detections
 #                    lon = mean(deploy_longitude, na.rm = T)) %>%
 #   dplyr::ungroup()
 # 
-# etn_monthyear_individual_sum_minichart <- 
+# etn_monthyear_individual_sum_minichart <-
 #   etn_monthyear_individual_sum %>%
-#   dplyr::filter(monthyear %>% date() == selected_date) %>%
+#   # dplyr::filter(monthyear %>% date() == selected_date) %>%
 #   tidyr::pivot_wider(names_from = tag_serial_number, values_from = n_detections, names_prefix = "id_") %>%
 #   dplyr::ungroup()
 # 
@@ -74,13 +74,13 @@ map_acoustic_detections
 #                    fillOpacity = 1,
 #                    fillColor =  "grey") %>%
 #   addMinicharts(
-#     lng = etn_monthyear_individual_sum_minichart$deploy_longitude, 
+#     lng = etn_monthyear_individual_sum_minichart$deploy_longitude,
 #     lat = etn_monthyear_individual_sum_minichart$deploy_latitude,
 #     type = "pie",
-#     chartdata =etn_monthyear_individual_sum_minichart %>% select(starts_with("id_")), 
+#     chartdata =etn_monthyear_individual_sum_minichart %>% select(starts_with("id_")),
 #     width = 60 * sqrt(etn_monthyear_individual_sum_minichart$n_detections_monthyear_station) / sqrt(etn_monthyear_individual_sum_minichart$n_detections_monthyear),
 #     transitionTime = 0
-#   ) %>% 
+#   ) %>%
 #   # Title control
 #   addControl(
 #     html = glue::glue("
@@ -89,10 +89,10 @@ map_acoustic_detections
 #         </div>
 #       "),
 #     position = "bottomleft"
-#   ) 
+#   )
 # 
 # map_mini_test
-# 
+
 # 
 # [# install.packages("leaflet.extras2")
 # # library(leaflet.extras2)
