@@ -52,6 +52,35 @@ chartdata_all <- as.matrix(anim_df[, ids])      # nrow = nStations * nMonths
 # time_all <- anim_df$month                       # same length as nrow(chartdata_all)
 
 
+# custom width&height -----------------------------------------------------
+
+# totals per station-month
+station_month_totals <- etn_monthyear_individual_sum %>%
+  mutate(month = as.Date(paste0(format(monthyear, "%Y-%m"), "-01"))) %>%
+  group_by(month, station_name) %>%
+  summarise(n_station = sum(n_detections, na.rm = TRUE), .groups = "drop")
+
+# totals per month (all stations)
+month_totals <- station_month_totals %>%
+  group_by(month) %>%
+  summarise(n_month = sum(n_station, na.rm = TRUE), .groups = "drop")
+
+# join onto anim_df (anim_df is month x station_name ordered!)
+anim_df <- anim_df %>%
+  left_join(station_month_totals, by = c("month", "station_name")) %>%
+  left_join(month_totals, by = "month") %>%
+  mutate(
+    n_station = replace_na(n_station, 0),
+    n_month   = pmax(replace_na(n_month, 0), 1),
+    rel = n_station / n_month,
+    
+    # size formula (tune these)
+    pie_size = 12 + 80 * sqrt(rel)
+  )
+
+width_all  <- anim_df$pie_size
+height_all <- anim_df$pie_size
+
 # custom legend -----------------------------------------
 
 permute_spread <- function(n) {
@@ -167,8 +196,35 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+
+# helpers for current month/monthly summary -------------------------------
+
   month_idx <- reactiveVal(1)
   
+  current_month <- reactive({
+    months[month_idx()]
+  })
+  
+  active_ids_this_month <- reactive({
+    prods <- input$prods
+    if (length(prods) == 0) return(character(0))
+    
+    m <- current_month()
+    rows_m <- anim_df$month == m
+    present <- colSums(anim_df[rows_m, prods, drop = FALSE], na.rm = TRUE) > 0
+    prods[present]
+  })
+  
+  make_popup_html <- function(vals_mat, station_vec, month_vec, id_names) {
+    vapply(seq_len(nrow(vals_mat)), function(r) {
+      vals <- vals_mat[r, ]
+      nz <- which(vals > 0)
+      header <- paste0("<b>", station_vec[r], "</b><br>", format(month_vec[r], "%Y-%m"), "<br>")
+      if (length(nz) == 0) return(paste0(header, "<i>No detections</i>"))
+      lines <- paste0(id_names[nz], ": ", vals[nz], collapse = "<br>")
+      paste0(header, lines)
+    }, character(1))
+  }
 
 # summary for selected month ----------------------------------------------
 
@@ -242,10 +298,10 @@ server <- function(input, output, session) {
       tags$div(
         tags$b(format(m, "%Y-%m")),
         tags$ul(
-          tags$li(paste0("Number of individuals detected: ", n_indiv)),
-          tags$li(paste0("Total detections this month: ", total_det)),
-          tags$li(paste0("Station with most individuals: ", top_indiv_name, " (", top_indiv_val, ")")),
-          tags$li(paste0("Station with most detections: ", top_det_name, " (", top_det_val, ")"))
+          tags$li(paste0("Number of individuals detected: ", tags$strong(n_indiv))),
+          tags$li(paste0("Total detections this month: ", tags$strong(n_indiv))),
+          tags$li(paste0("Station with most individuals: ", tags$strong(top_indiv_name), " (n = ", top_indiv_val, ")")),
+          tags$li(paste0("Station with most detections: ", tags$strong(top_det_name), " (n = ", top_det_val, ")"))
         )
       )
     )
@@ -260,6 +316,14 @@ server <- function(input, output, session) {
     init_mat <- as.matrix(anim_df[, init_prods, drop = FALSE])
     storage.mode(init_mat) <- "numeric"
     
+    ## custom popup for the piecharts
+    popup_html <- make_popup_html(
+      vals_mat    = init_mat,
+      station_vec = anim_df$station_name,
+      month_vec   = anim_df$month,
+      id_names    = init_prods
+    )
+    
     pal_init <- unname(id_palette[colnames(init_mat)])  # aligned to column order
     
     # leaflet() %>%
@@ -269,16 +333,19 @@ server <- function(input, output, session) {
       addCircleMarkers(data = stations, lng = ~lon, lat = ~lat,
                        radius = 4, stroke = FALSE, fillOpacity = 1, fillColor = "grey") %>%
       addMinicharts(
-        lng = stations$lon,
-        lat = stations$lat,
+        lng = stations$lon, lat = stations$lat,
         layerId = stations$station_name,
         chartdata = init_mat,
         type = "pie",
-        colorPalette = pal_init,          # <-- THIS fixes the mismatch
-        legend = FALSE,
         time = anim_df$month,
-        width = 45,
-        height = 45
+        timeFormat = "%Y-%m",
+        initialTime = months[1],
+        legend = FALSE,                              # <-- important
+        colorPalette = unname(id_palette[init_prods]),# <-- enough colors
+        popup = popupArgs(html = popup_html),         # <-- custom popup
+        width = width_all,
+        height = height_all
+        # width = 45, height = 45
       ) %>%
       addControl(
         html = HTML(make_legend_html(init_prods)),
@@ -288,57 +355,38 @@ server <- function(input, output, session) {
       ) %>%
       onRender("
       function(el, x){
-        var node = el.querySelector('.idLegendCtrl .id-legend-scroll');
-        if(node && window.L && L.DomEvent){
-          L.DomEvent.disableScrollPropagation(node);
-          L.DomEvent.disableClickPropagation(node);
+        // prevent scroll-wheel on legend from zooming the map
+        function fixLegend(){
+          var node = el.querySelector('.idLegendCtrl .id-legend-scroll');
+          if(!node) return false;
+          if(window.L && L.DomEvent){
+            L.DomEvent.disableScrollPropagation(node);
+            L.DomEvent.disableClickPropagation(node);
+          }
+          return true;
+        }
+        if(!fixLegend()){
+          var obs = new MutationObserver(function(){
+            if(fixLegend()) obs.disconnect();
+          });
+          obs.observe(el, {childList:true, subtree:true});
         }
       }
     ")
   })
-
-# map with scrollable legend but colors not mapped to piecharts -----------
-
-  # output$map <- renderLeaflet({
-  #   init_prods <- ids
-  #   
-  #   # init_mat <- as.matrix(anim_df[, init_prods, drop = FALSE])
-  #   # storage.mode(init_mat) <- "numeric"
-  #   
-  #   # pal_init <- unname(id_palette[colnames(init_mat)])  # <- aligned to columns
-  #   
-  #   
-  #   leaflet() %>%
-  #     addTiles() %>%
-  #     setView(lng = mean(stations$lon), lat = mean(stations$lat), zoom = 11) %>%
-  #     addCircleMarkers(
-  #       data = stations,
-  #       lng = ~lon, lat = ~lat,
-  #       radius = 4, stroke = FALSE, fillOpacity = 1, fillColor = "grey"
-  #     ) %>%
-  #     addMinicharts(
+  # works but no custom popup
+   #     addMinicharts(
   #       lng = stations$lon,
   #       lat = stations$lat,
   #       layerId = stations$station_name,
-  #       # type = "pie",
-  #       
-  #       chartdata = anim_df[, init_prods, drop = FALSE],
-  #       # chartdata = init_mat,
-  #       # colorPalette = pal_init,
+  #       chartdata = init_mat,
+  #       type = "pie",
+  #       colorPalette = pal_init,          # <-- THIS fixes the mismatch
   #       legend = FALSE,
-  #       
-  #       # This enables the time slider/play control
   #       time = anim_df$month,
-  #       # timeFormat = "%Y-%m",
-  #       # initialTime = min(time_all),
-  #       # # This enables the time slider/play control
-  #       # time = time_all,
-  #       # timeFormat = "%Y-%m",
-  #       # initialTime = min(time_all),
-  #       
-  #       width = 45, #60 * sqrt(anim_df$n_detections_monthyear_station) / sqrt(anim_df$n_detections_monthyear),
+  #       width = 45,
   #       height = 45
-  #     )  %>%
+  #     ) %>%
   #     addControl(
   #       html = HTML(make_legend_html(init_prods)),
   #       position = "topleft",
@@ -347,7 +395,6 @@ server <- function(input, output, session) {
   #     ) %>%
   #     onRender("
   #     function(el, x){
-  #       // make sure scroll on legend doesn't zoom the map
   #       var node = el.querySelector('.idLegendCtrl .id-legend-scroll');
   #       if(node && window.L && L.DomEvent){
   #         L.DomEvent.disableScrollPropagation(node);
@@ -356,7 +403,7 @@ server <- function(input, output, session) {
   #     }
   #   ")
   # })
-  
+
   observeEvent(input$prev_month, {
     i <- month_idx()
     month_idx(if (i <= 1) length(months) else i - 1)
@@ -425,7 +472,9 @@ server <- function(input, output, session) {
         type = "pie", #input$type,
         showLabels = input$labels,
         colorPalette = pal,     # <-- THIS keeps colors consistent on updates
-        legend = FALSE #,
+        legend = FALSE ,
+        width = width_all,
+        height = height_all
         # time = anim_df$month
         # IMPORTANT: do NOT pass time= here
       )
@@ -968,7 +1017,7 @@ shinyApp(ui, server)
 #   })
 # }
 
-shinyApp(ui, server)
+# shinyApp(ui, server)
 
 
 # # app.R
