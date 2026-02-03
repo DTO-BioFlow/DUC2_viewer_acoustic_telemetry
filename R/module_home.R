@@ -19,7 +19,8 @@ mod_home_ui <- function(id) {
           href = bioflow_duc2_url,
           target = "_blank",
           rel = "noopener",
-          class = "btn btn-primary bioflow-btn bioflow-btn--block"
+          class = "btn btn-primary d-flex align-items-center justify-content-center",
+          style = glue::glue("margin-bottom:25px;background-color:{blue_medium}; color:white;")
         ),
         tags$br(),
         tags$a(
