@@ -64,3 +64,19 @@
 .bioflow-btn--logo {
   height: 60px;
 }
+
+/* Legend control for the acoustic telemetry data submodule */
+.idLegendCtrl{
+  background: white;
+  padding: 10px 12px;
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+}
+
+.idLegendCtrl .id-legend-scroll{
+  width: 150px;
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+

@@ -10,18 +10,6 @@
 ##################################################################################
 ##################################################################################
 
-# --- helper: read metadata once and split into list ---
-load_wms_layers <- function(metadata_csv = "data/EDITO_STAC_layers_metadata.csv",
-                            edito_script = "EDITO_STAC_data_access.R") {
-  
-  if (!file.exists(metadata_csv)) {
-    source(edito_script, local = TRUE)
-  }
-  
-  read.csv(metadata_csv) %>%
-    base::split(.$env_data_name)
-}
-
 # --- helper: html for legend box ---
 legend_control <- function(id, title, img_url) {
   paste0(
@@ -42,10 +30,8 @@ make_env_wms_map <- function(
       "Submarine Power Cables (SPC)", "Shipwrecks"
     )
 ) {
-  
-  if (is.null(wms_layers)) {
-    wms_layers <- load_wms_layers()
-  }
+  # load WMS metadata
+  wms_layers <- load_STAC_metadata()
   
   # TODO: make EEZ able to be toggled on/off
   # EEZ legend

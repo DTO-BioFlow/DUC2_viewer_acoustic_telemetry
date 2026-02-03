@@ -6,11 +6,34 @@ library(leaflet)
 library(glue)
 library(terra)
 library(htmltools)
+library(leaflet.minicharts)
+library(tidyr)
+library(RColorBrewer)
+library(rstac)
+library(purrr)
+library(arrow)
+library(dplyr)
+library(lubridate)
 
+# load data ---------------------------------------------------------------
+# TODO: outsource into a helper script?
+deployments <- readRDS("data/deployments.rds")
+etn_monthyear_individual_sum <- readRDS("data/etn_sum_seabass_monthyear_individual.rds")
+
+
+# source scripts ----------------------------------------------------------
 # we first source all .R files in the ./R folder in this repo
 source("helpers/source_all_files.R")
 source_all(path = "R")
+# source_all(path = "helpers") #probably not needed in the end
+source("./helpers/load_acoustic_telemetry_GAM_s3.R")
+source("./helpers/load_STAC_metadata.R")
+# get STAC metadata
+wms_layers <- load_STAC_metadata()
+source("./helpers/wrangle_acoustic_telemetry_data.R")
 
+
+# ui ----------------------------------------------------------------------
 ui <- fluidPage(
   tags$head(
     tags$style(HTML(glue::glue("
@@ -72,6 +95,8 @@ ui <- fluidPage(
   )
 )
 
+
+# server ------------------------------------------------------------------
 server <- function(input, output, session) {
   mod_home_server("home")
   mod_seabass_server("seabass")

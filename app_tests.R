@@ -1,3 +1,39 @@
+# 
+# # helpers/dev_run_seabass_telemetry.R
+# 
+# library(shiny)
+# library(dplyr)
+# library(tidyr)
+# library(lubridate)
+# library(leaflet)
+# library(leaflet.minicharts)
+# library(htmlwidgets)
+# library(RColorBrewer)
+# 
+# # source the functions your module needs
+# deployments <- readRDS("data/deployments.rds")
+# etn_monthyear_individual_sum <- readRDS("data/etn_sum_seabass_monthyear_individual.rds")
+# 
+# source("helpers/wrangle_acoustic_telemetry_data.R")  # prep_minicharts_inputs()
+# source("R/map_base.R")                               # make_base_map()
+# source("R/seabass/submodule_telemetry_data.R")   # your module file
+# 
+# ui <- fluidPage(
+#   mod_seabass_telemetry_ui("tele")
+# )
+# 
+# server <- function(input, output, session) {
+#   mod_seabass_telemetry_data_server(
+#     "tele",
+#     deployments = deployments,
+#     etn_monthyear_individual_sum = etn_monthyear_individual_sum,
+#     base_map_fun = make_base_map
+#   )
+# }
+# 
+# shinyApp(ui, server)
+
+
 # Fully copy/paste MWE -----------------------------------------------
 
 library(shiny)
@@ -14,9 +50,9 @@ library(RColorBrewer)
 # only show in legend the individuals that were detected that month
 
 # load the base map
-map_base <- readRDS("./maps/01_map_base.rds")
+map_base <- readRDS("./maps_to_delete/01_map_base.rds")
 deployments <- readRDS("./data/deployments.rds")
-etn_monthyear_individual_sum <- readRDS("./data/etn_sum_seabass_monthyear_indivdual.rds")
+etn_monthyear_individual_sum <- readRDS("./data/etn_sum_seabass_monthyear_individual.rds")
 
 deployments_minichart <-
   deployments %>%
@@ -77,7 +113,7 @@ anim_df <- anim_df %>%
     n_station = replace_na(n_station, 0),
     n_month   = pmax(replace_na(n_month, 0), 1),
     rel = n_station / n_month,
-    
+
     # size formula (tune these)
     pie_size = 12 + 80 * sqrt(rel)
   )
@@ -147,9 +183,9 @@ make_legend_html <- function(id_vec) {
 
 
 ui <- fluidPage(
-  
+
   # legend CSS -> todo outsource  ------------
-  
+
   tags$head(tags$style(HTML("
   .idLegendCtrl{
     background: white;
@@ -181,7 +217,7 @@ ui <- fluidPage(
     flex: 0 0 auto;
   }
 "))),
-  
+
   titlePanel("Leaflet minicharts time animation (MWE)"),
   sidebarLayout(
     sidebarPanel(height = 2000,
@@ -199,26 +235,26 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  
+
 
 # helpers for current month/monthly summary -------------------------------
 
   month_idx <- reactiveVal(1)
-  
+
   current_month <- reactive({
     months[month_idx()]
   })
-  
+
   active_ids_this_month <- reactive({
     prods <- input$prods
     if (length(prods) == 0) return(character(0))
-    
+
     m <- current_month()
     rows_m <- anim_df$month == m
     present <- colSums(anim_df[rows_m, prods, drop = FALSE], na.rm = TRUE) > 0
     prods[present]
   })
-  
+
   make_popup_html <- function(vals_mat, station_vec, month_vec, id_names) {
     vapply(seq_len(nrow(vals_mat)), function(r) {
       vals <- vals_mat[r, ]
@@ -233,9 +269,9 @@ server <- function(input, output, session) {
 # summary for selected month ----------------------------------------------
 
   output$month_summary <- renderUI({
-    
+
     i <- month_idx()
-    
+
     # make it scalar + valid, without ever evaluating vector logicals
     if (length(i) != 1L) i <- 1L
     i <- as.integer(i[1])
@@ -246,13 +282,13 @@ server <- function(input, output, session) {
     if (is.na(i)) i <- 1L
     if (i < 1L) i <- 1L
     if (i > length(months)) i <- length(months)
-    
+
     m <- months[i]
-    
+
     df_m <- etn_monthyear_individual_sum %>%
       mutate(month = as.Date(paste0(format(monthyear, "%Y-%m"), "-01"))) %>%
       filter(month == m)
-    
+
     if (nrow(df_m) == 0) {
       return(tagList(
         tags$hr(),
@@ -260,7 +296,7 @@ server <- function(input, output, session) {
         tags$div("No detections for this month.")
       ))
     }
-    
+
     n_indiv <- df_m %>%
       filter(n_detections > 0) %>%
       summarise(n = n_distinct(tag_serial_number), .groups = "drop") %>%
@@ -270,33 +306,33 @@ server <- function(input, output, session) {
       filter(n_detections > 0) %>%
       summarise(n = n_distinct(tag_serial_number), .groups = "drop") %>%
       pull(n)
-    
+
     if (length(n_indiv) == 0) n_indiv <- 0
     n_indiv <- as.integer(n_indiv[1])
     if (is.na(n_indiv)) n_indiv <- 0
-    
-        
+
+
     total_det <- sum(df_m$n_detections, na.rm = TRUE)
-    
+
     top_station_indiv <- df_m %>%
       filter(n_detections > 0) %>%
       group_by(station_name) %>%
       summarise(n_indiv = n_distinct(tag_serial_number), .groups = "drop") %>%
       arrange(desc(n_indiv)) %>%
       slice_head(n = 1)
-    
+
     top_indiv_name <- if (nrow(top_station_indiv) == 0) "—" else top_station_indiv$station_name[1]
     top_indiv_val  <- if (nrow(top_station_indiv) == 0) 0   else top_station_indiv$n_indiv[1]
-    
+
     top_station_det <- df_m %>%
       group_by(station_name) %>%
       summarise(n_det = sum(n_detections, na.rm = TRUE), .groups = "drop") %>%
       arrange(desc(n_det)) %>%
       slice_head(n = 1)
-    
+
     top_det_name <- if (nrow(top_station_det) == 0) "—" else top_station_det$station_name[1]
     top_det_val  <- if (nrow(top_station_det) == 0) 0   else top_station_det$n_det[1]
-    
+
     tagList(
       tags$hr(),
       tags$div(
@@ -310,7 +346,7 @@ server <- function(input, output, session) {
       )
     )
   })
-  
+
 
 
 # leaflet map -------------------------------------------------------------
@@ -319,7 +355,7 @@ server <- function(input, output, session) {
     init_prods <- ids
     init_mat <- as.matrix(anim_df[, init_prods, drop = FALSE])
     storage.mode(init_mat) <- "numeric"
-    
+
     ## custom popup for the piecharts
     popup_html <- make_popup_html(
       vals_mat    = init_mat,
@@ -327,9 +363,9 @@ server <- function(input, output, session) {
       month_vec   = anim_df$month,
       id_names    = init_prods
     )
-    
+
     pal_init <- unname(id_palette[colnames(init_mat)])  # aligned to column order
-    
+
     # leaflet() %>%
     #   addTiles() %>%
     #   setView(lng = mean(stations$lon), lat = mean(stations$lat), zoom = 11) %>%
@@ -412,12 +448,12 @@ server <- function(input, output, session) {
     i <- month_idx()
     month_idx(if (i <= 1) length(months) else i - 1)
   })
-  
+
   observeEvent(input$next_month, {
     i <- month_idx()
     month_idx(if (i >= length(months)) 1 else i + 1)
   })
-  
+
   observeEvent(month_idx(), {
     leafletProxy("map", session) %>%
       updateMinicharts(
@@ -427,10 +463,10 @@ server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   # observeEvent(list(input$prods, input$labels), {
-  #   
+  #
   #   # keep columns in stable order (ids order), not click-order
   #   prods <- ids[ids %in% input$prods]
-  #   
+  #
   #   if (length(prods) == 0) {
   #     data_mat <- matrix(0, nrow = nrow(anim_df), ncol = 1)
   #     colnames(data_mat) <- "none"
@@ -440,7 +476,7 @@ server <- function(input, output, session) {
   #     storage.mode(data_mat) <- "numeric"
   #     pal <- unname(id_palette[colnames(data_mat)])   # <- aligned to columns
   #   }
-  #   
+  #
   #   leafletProxy("map", session) %>%
   #     updateMinicharts(
   #       layerId = stations$station_name,
@@ -450,14 +486,14 @@ server <- function(input, output, session) {
   #       showLabels = input$labels,
   #       colorPalette = pal
   #     )
-  #   
+  #
   # }, ignoreInit = TRUE)
-  
+
   observeEvent(list(input$prods, input$labels), {#, input$type
-    
+
     # keep stable order (ids order), not click order
     prods <- ids[ids %in% input$prods]
-    
+
     if (length(prods) == 0) {
       data_mat <- matrix(0, nrow = nrow(anim_df), ncol = 1)
       colnames(data_mat) <- "none"
@@ -467,7 +503,7 @@ server <- function(input, output, session) {
       storage.mode(data_mat) <- "numeric"
       pal <- unname(id_palette[colnames(data_mat)])  # aligned to columns
     }
-    
+
     leafletProxy("map", session) %>%
       updateMinicharts(
         layerId = stations$station_name,
@@ -482,7 +518,7 @@ server <- function(input, output, session) {
         # time = anim_df$month
         # IMPORTANT: do NOT pass time= here
       )
-    
+
     # legend to match current selection/order:
     leafletProxy("map", session) %>%
       removeControl("idLegend") %>%
@@ -494,19 +530,19 @@ server <- function(input, output, session) {
       )
 
   }, ignoreInit = TRUE)
-  
-  
+
+
 # scrollable legend but no mapping to piecharts ---------------------------
   # observe({
   #   prods <- input$prods
-  # 
+  #
   #   data <- if (length(prods) == 0) {
   #     matrix(0, nrow = nrow(chartdata_all), ncol = 1)
   #   } else {
   #     as.matrix(anim_df[, prods, drop = FALSE])
   #   }
   #   maxValue <- max(as.matrix(data))
-  # 
+  #
   #   leafletProxy("map", session) %>%
   #     updateMinicharts(
   #       layerId = stations$station_name,
@@ -529,27 +565,27 @@ shinyApp(ui, server)
 # library(shiny)
 # library(leaflet)
 # library(leaflet.minicharts)
-# 
+#
 # # User interface
 # # data("regions")
-# 
+#
 # # load the base map
 # map_base <- readRDS("./maps/01_map_base.rds")
 # deployments <- readRDS("./data/deployments.rds")
 # etn_monthyear_individual_sum <- readRDS("./data/etn_sum_seabass_monthyear_indivdual.rds")
-# 
-# deployments_minichart <- 
+#
+# deployments_minichart <-
 #   deployments %>%
 #   dplyr::group_by(station_name) %>%
 #   dplyr::summarise(lat = mean(deploy_latitude, na.rm = T),
 #                    lon = mean(deploy_longitude, na.rm = T)) %>%
 #   dplyr::ungroup()
-# 
+#
 # # 1) One row per station (coordinates only)
 # stations <- deployments_minichart %>%
 #   distinct(station_name, lon, lat) %>%
 #   arrange(station_name)
-# 
+#
 # etn_monthyear_individual_sum_minichart <-
 #   etn_monthyear_individual_sum %>%
 #   dplyr::mutate(month = as.Date(paste0(format(monthyear, "%Y-%m"), "-01"))) %>%
@@ -557,18 +593,18 @@ shinyApp(ui, server)
 #   tidyr::pivot_wider(names_from = tag_serial_number, values_from = n_detections, names_prefix = "id_",
 #                      values_fill  = 0) %>%
 #   dplyr::ungroup()
-# 
+#
 # months <- etn_monthyear_individual_sum_minichart$month %>% unique() %>% sort()
-# 
+#
 # # 3) Ensure every station exists for every month (required for clean animation)
 # grid <- tidyr::expand_grid(station_name = stations$station_name, month = months)
-# 
-# 
+#
+#
 # # Production columns
 # ids <- names(etn_monthyear_individual_sum_minichart %>% select(starts_with("id_")))
-# 
+#
 # # Create base map
-# 
+#
 # basemap <- #leaflet(width = "100%", height = "400px") %>%
 #   map_base %>%
 #   addCircleMarkers(data = deployments_minichart,
@@ -580,13 +616,13 @@ shinyApp(ui, server)
 #                    fillColor =  "grey")
 #   # addTiles(tilesURL)# %>%
 # # addPolylines(data = regions, color = "brown", weight = 1, fillOpacity = 0)
-# 
+#
 # ui <- fluidPage(
 #   titlePanel("Seabass acoustic detections"),
 #   p(""),
-#   
+#
 #   sidebarLayout(
-#     
+#
 #     sidebarPanel(
 #       selectInput(
 #         "prods",
@@ -598,14 +634,14 @@ shinyApp(ui, server)
 #       selectInput("type", "Chart type", choices = c("pie", "bar", "polar-area", "polar-radius")),
 #       checkboxInput("labels", "Show values")
 #     ),
-#     
+#
 #     mainPanel(
 #       leafletOutput("map", height = 900)
 #     )
-#     
+#
 #   )
 # )
-# 
+#
 # # server function
 # server <- function(input, output, session) {
 #   # Initialize map
@@ -618,7 +654,7 @@ shinyApp(ui, server)
 #         , height = 45
 #       )
 #   })
-#   
+#
 #   # Update charts each time input value changes
 #   observe({
 #     if (length(input$prods) == 0) {
@@ -627,7 +663,7 @@ shinyApp(ui, server)
 #       data <- etn_monthyear_individual_sum_minichart[, input$prods]
 #     }
 #     maxValue <- max(as.matrix(data))
-#     
+#
 #     leafletProxy("map", session) %>%
 #       updateMinicharts(
 #         etn_monthyear_individual_sum_minichart$station_name,
@@ -639,7 +675,7 @@ shinyApp(ui, server)
 #       )
 #   })
 # }
-# 
+#
 # shinyApp(ui, server)
 
 # minicharts demo ---------------------------------------------------------
@@ -648,44 +684,44 @@ shinyApp(ui, server)
 # library(shiny)
 # library(leaflet)
 # library(leaflet.minicharts)
-# 
+#
 # # User interface
 # # data("regions")
 # data("eco2mix")
-# 
+#
 # # Remove data for the whole country
 # prodRegions <- eco2mix %>% filter(area != "France")
-# 
+#
 # # Production columns
 # prodCols <- names(prodRegions)[6:13]
-# 
+#
 # # Create base map
 # tilesURL <- "http://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-# 
+#
 # basemap <- leaflet(width = "100%", height = "400px") %>%
 #   addTiles(tilesURL)# %>%
 #   # addPolylines(data = regions, color = "brown", weight = 1, fillOpacity = 0)
-# 
+#
 # ui <- fluidPage(
 #   titlePanel("Demo of leaflet.minicharts"),
 #   p("This application uses the data.frame 'eco2mix', included in the 'leaflet.minicharts' packages.",
 #     "It contains the monthly electric production of french regions from 2013 to 2017."),
-#   
+#
 #   sidebarLayout(
-#     
+#
 #     sidebarPanel(
 #       selectInput("prods", "Select productions", choices = prodCols, multiple = TRUE),
 #       selectInput("type", "Chart type", choices = c("bar","pie", "polar-area", "polar-radius")),
 #       checkboxInput("labels", "Show values")
 #     ),
-#     
+#
 #     mainPanel(
 #       leafletOutput("map")
 #     )
-#     
+#
 #   )
 # )
-# 
+#
 # # server function
 # server <- function(input, output, session) {
 #   # Initialize map
@@ -697,7 +733,7 @@ shinyApp(ui, server)
 #         width = 45, height = 45
 #       )
 #   })
-#   
+#
 #   # Update charts each time input value changes
 #   observe({
 #     if (length(input$prods) == 0) {
@@ -706,7 +742,7 @@ shinyApp(ui, server)
 #       data <- prodRegions[, input$prods]
 #     }
 #     maxValue <- max(as.matrix(data))
-#     
+#
 #     leafletProxy("map", session) %>%
 #       updateMinicharts(
 #         prodRegions$area,
@@ -718,7 +754,7 @@ shinyApp(ui, server)
 #       )
 #   })
 # }
-# 
+#
 # shinyApp(ui, server)
 
 
@@ -733,18 +769,18 @@ shinyApp(ui, server)
 # library(lubridate)
 # library(leaflet)
 # library(leaflet.minicharts)
-# 
+#
 # set.seed(1)
-# 
+#
 # stations <- tibble(
 #   station_name = paste0("S", 1:8),
 #   deploy_latitude  = runif(8, 51.0, 51.8),
 #   deploy_longitude = runif(8,  2.0,  3.6)
 # )
-# 
+#
 # tag_ids <- paste0("T", 1:5)
 # months <- seq(ymd("2021-01-01"), ymd("2021-12-01"), by = "1 month")
-# 
+#
 # etn_long <- tidyr::crossing(
 #   monthyear = months,
 #   station_name = stations$station_name,
@@ -758,7 +794,7 @@ shinyApp(ui, server)
 #   group_by(monthyear, station_name) %>%
 #   mutate(n_detections_monthyear_station = sum(n_detections)) %>%
 #   ungroup()
-# 
+#
 # etn_wide <- etn_long %>%
 #   select(monthyear, station_name, deploy_longitude, deploy_latitude,
 #          tag_serial_number, n_detections,
@@ -770,17 +806,17 @@ shinyApp(ui, server)
 #     values_fill = 0
 #   ) %>%
 #   arrange(station_name, monthyear)
-# 
+#
 # # --- chart matrix and max for consistent scaling across time
 # chartdata_all <- etn_wide %>% select(starts_with("id_"))
 # maxValue <- max(as.matrix(chartdata_all))
-# 
+#
 # # --- size scaling (station share of month total), clamped to reasonable range
 # den <- pmax(etn_wide$n_detections_monthyear, 1)
 # sizes <- 60 * sqrt(etn_wide$n_detections_monthyear_station) / sqrt(den)
 # sizes[!is.finite(sizes)] <- 0
 # sizes <- pmin(pmax(sizes, 8), 80)  # min 8px, max 80px (tweak as you like)
-# 
+#
 # ui <- fluidPage(
 #   titlePanel("Leaflet minicharts + animation + prev/next (MWE)"),
 #   sidebarLayout(
@@ -798,24 +834,24 @@ shinyApp(ui, server)
 #     )
 #   )
 # )
-# 
+#
 # server <- function(input, output, session) {
-#   
+#
 #   idx <- reactiveVal(1)
-#   
+#
 #   observeEvent(input$prev_month, {
 #     idx(max(1, idx() - 1))
 #   })
 #   observeEvent(input$next_month, {
 #     idx(min(length(months), idx() + 1))
 #   })
-#   
+#
 #   selected_month <- reactive(months[[idx()]])
-#   
+#
 #   output$month_label <- renderText({
 #     paste("Selected month:", format(selected_month(), "%B %Y"))
 #   })
-#   
+#
 #   # IMPORTANT: put time= (and chartdata) in addMinicharts so the time pane is created
 #   output$map <- renderLeaflet({
 #     leaflet() %>%
@@ -827,61 +863,61 @@ shinyApp(ui, server)
 #         deploy_longitude = etn_wide$deploy_longitude,
 #         lat = etn_wide$deploy_latitude,
 #         layerId = etn_wide$station_name,
-#         
+#
 #         chartdata = chartdata_all,
 #         type = "pie",
 #         maxValues = maxValue,
-#         
+#
 #         # animation/time control
 #         time = etn_wide$monthyear,
 #         timeFormat = "%b %Y",
 #         initialTime = selected_month(),
-#         
+#
 #         # per-row sizing (station-month)
 #         width = sizes,
 #         height = sizes,
-#         
+#
 #         showLabels = input$show_labels,
 #         transitionTime = 500,
-#         
+#
 #         legend = TRUE,
 #         legendPosition = "topright"
 #       )
 #   })
-#   
+#
 #   # Update only what changes (DON'T clearControls, it removes the legend)
 #   observeEvent(list(selected_month(), input$show_labels), {
 #     leafletProxy("map") %>%
 #       updateMinicharts(
 #         layerId = unique(etn_wide$station_name),
-#         
+#
 #         # keep same data/time
 #         chartdata = chartdata_all,
 #         time = etn_wide$monthyear,
 #         timeFormat = "%b %Y",
-#         
+#
 #         # jump to chosen month
 #         initialTime = selected_month(),
-#         
+#
 #         type = "pie",
 #         maxValues = maxValue,
-#         
+#
 #         # keep sizing
 #         width = sizes,
 #         height = sizes,
-#         
+#
 #         showLabels = input$show_labels,
 #         transitionTime = 250,
-#         
+#
 #         legend = TRUE,
 #         legendPosition = "topright"
 #       )
 #   }, ignoreInit = TRUE)
 # }
-# 
+#
 # shinyApp(ui, server)
 
-# 
+#
 # # app.R
 # library(shiny)
 # library(dplyr)
@@ -889,19 +925,19 @@ shinyApp(ui, server)
 # library(lubridate)
 # library(leaflet)
 # library(leaflet.minicharts)
-# 
+#
 # set.seed(1)
-# 
+#
 # # ---- Synthetic "your-shaped" data ----
 # stations <- tibble(
 #   station_name = paste0("S", 1:8),
 #   deploy_latitude  = runif(8, 51.0, 51.8),
 #   deploy_longitude = runif(8,  2.0,  3.6)
 # )
-# 
+#
 # tag_ids <- paste0("T", 1:5)
 # months <- seq(ymd("2021-01-01"), ymd("2021-12-01"), by = "1 month")
-# 
+#
 # # long format similar to your etn_monthyear_individual_sum
 # etn_long <- tidyr::crossing(
 #   monthyear = months,
@@ -916,7 +952,7 @@ shinyApp(ui, server)
 #   group_by(monthyear, station_name) %>%
 #   mutate(n_detections_monthyear_station = sum(n_detections)) %>%
 #   ungroup()
-# 
+#
 # # wide per station-month (one row per station per month)
 # etn_wide <- etn_long %>%
 #   select(monthyear, station_name, deploy_longitude, deploy_latitude,
@@ -929,10 +965,10 @@ shinyApp(ui, server)
 #     values_fill = 0
 #   ) %>%
 #   arrange(station_name, monthyear)
-# 
+#
 # # base stations for layerId vector
 # station_ids <- stations$station_name
-# 
+#
 # ui <- fluidPage(
 #   titlePanel("Leaflet minicharts + built-in animation + prev/next (MWE)"),
 #   sidebarLayout(
@@ -954,26 +990,26 @@ shinyApp(ui, server)
 #     )
 #   )
 # )
-# 
+#
 # server <- function(input, output, session) {
-#   
+#
 #   # external month state (for prev/next buttons)
 #   idx <- reactiveVal(1)
-#   
+#
 #   observeEvent(input$prev_month, {
 #     idx(max(1, idx() - 1))
 #   })
-#   
+#
 #   observeEvent(input$next_month, {
 #     idx(min(length(months), idx() + 1))
 #   })
-#   
+#
 #   selected_month <- reactive(months[[idx()]])
-#   
+#
 #   output$month_label <- renderText({
 #     paste("Selected month:", format(selected_month(), "%B %Y"))
 #   })
-#   
+#
 #   # initialize map with minicharts ONCE
 #   output$map <- renderLeaflet({
 #     leaflet() %>%
@@ -988,12 +1024,12 @@ shinyApp(ui, server)
 #         transitionTime = 750
 #       )
 #   })
-#   
+#
 #   # update charts (this also enables animation because we pass time=)
 #   observe({
 #     chartdata <- etn_wide %>% select(starts_with("id_"))
 #     maxValue <- max(as.matrix(chartdata))
-#     
+#
 #     leafletProxy("map") %>%
 #       updateMinicharts(
 #         layerId = station_ids,
@@ -1031,19 +1067,19 @@ shinyApp(ui, server)
 # library(lubridate)
 # library(leaflet)
 # library(leaflet.minicharts)
-# 
+#
 # set.seed(1)
-# 
+#
 # # ---- Synthetic data in the shape of your table ----
 # stations <- tibble(
 #   station_name = paste0("S", 1:8),
 #   deploy_latitude  = runif(8, 51.0, 51.8),
 #   deploy_longitude = runif(8,  2.0,  3.6)
 # )
-# 
+#
 # tag_ids <- paste0("T", 1:5)   # <- rename (DON'T call this 'tags')
 # months <- seq(ymd("2021-01-01"), ymd("2021-12-01"), by = "1 month")
-# 
+#
 # etn <- tidyr::crossing(
 #   monthyear = months,
 #   station_name = stations$station_name,
@@ -1059,7 +1095,7 @@ shinyApp(ui, server)
 #   group_by(monthyear, station_name) %>%
 #   mutate(n_detections_monthyear_station = sum(n_detections)) %>%
 #   ungroup()
-# 
+#
 # deployments_minichart <- stations %>%
 #   group_by(station_name) %>%
 #   summarise(
@@ -1067,7 +1103,7 @@ shinyApp(ui, server)
 #     lon = mean(deploy_longitude, na.rm = TRUE),
 #     .groups = "drop"
 #   )
-# 
+#
 # ui <- fluidPage(
 #   titlePanel("Leaflet minicharts + month navigation (MWE)"),
 #   sidebarLayout(
@@ -1088,35 +1124,35 @@ shinyApp(ui, server)
 #     )
 #   )
 # )
-# 
+#
 # server <- function(input, output, session) {
-#   
+#
 #   current_idx <- reactiveVal(1)
-#   
+#
 #   observeEvent(input$month_idx, {
 #     current_idx(input$month_idx)
 #   }, ignoreInit = TRUE)
-#   
+#
 #   observeEvent(input$prev_month, {
 #     current_idx(max(1, current_idx() - 1))
 #   })
-#   
+#
 #   observeEvent(input$next_month, {
 #     current_idx(min(length(months), current_idx() + 1))
 #   })
-#   
+#
 #   observeEvent(current_idx(), {
 #     updateSliderInput(session, "month_idx", value = current_idx())
 #   })
-#   
+#
 #   selected_month <- reactive({
 #     months[[current_idx()]]
 #   })
-#   
+#
 #   output$month_label <- renderText({
 #     format(selected_month(), "%B %Y")
 #   })
-#   
+#
 #   output$map <- renderLeaflet({
 #     leaflet() %>%
 #       addProviderTiles(providers$CartoDB.Positron) %>%
@@ -1127,16 +1163,16 @@ shinyApp(ui, server)
 #         radius = 4, stroke = FALSE, fillOpacity = 1, fillColor = "grey"
 #       )
 #   })
-#   
+#
 #   month_minichart_df <- reactive({
 #     m <- selected_month()
-#     
+#
 #     long <- etn %>%
 #       filter(monthyear == m) %>%
 #       select(monthyear, station_name, tag_serial_number,
 #              deploy_latitude, deploy_longitude,
 #              n_detections, n_detections_monthyear, n_detections_monthyear_station)
-#     
+#
 #     long %>%
 #       pivot_wider(
 #         names_from = tag_serial_number,
@@ -1145,16 +1181,16 @@ shinyApp(ui, server)
 #         values_fill = 0
 #       )
 #   })
-#   
+#
 #   observe({
 #     df <- month_minichart_df()
-#     
+#
 #     denom <- df$n_detections_monthyear
 #     denom[denom == 0] <- 1
-#     
+#
 #     widths <- 60 * sqrt(df$n_detections_monthyear_station) / sqrt(denom)
 #     widths[!is.finite(widths)] <- 0
-#     
+#
 #     leafletProxy("map") %>%
 #       clearMarkers() %>%      # clears the circle markers AND minicharts (they are markers internally)
 #       clearControls() %>%
@@ -1182,7 +1218,7 @@ shinyApp(ui, server)
 #         position = "bottomleft"
 #       )
 #   })
-#   
+#
 # }
-# 
+#
 # shinyApp(ui, server)

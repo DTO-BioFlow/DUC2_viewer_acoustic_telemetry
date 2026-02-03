@@ -1,6 +1,11 @@
+
+# TODO: change leaflet map to be updated without everything being cleared, to avoid flickering
+
+# ui ----------------------------------------------------------------------
+
 mod_seabass_migration_ui <- function(id) {
   ns <- NS(id)
-  
+
   sidebarLayout(
     sidebarPanel(
       width = 3,
@@ -11,7 +16,7 @@ mod_seabass_migration_ui <- function(id) {
           "Inside OWF" = "inside",
           "Outside OWF" = "outside",
           "Difference inside/outside OWF" = "Diff OWF"
-        )
+)
       ),
       fluidRow(
         column(6, actionButton(ns("prev_month"), "◀ Previous", width = "100%")),
@@ -27,14 +32,28 @@ mod_seabass_migration_ui <- function(id) {
   )
 }
 
+
+# make the map ------------------------------------------------------------
+
+render_migration_map <- function(r, pal) {
+  make_base_map() %>%
+    leaflet::setView(lat = 51.5, lng = 2.5, zoom = 8) %>%
+    leaflet::addRasterImage(r, colors = pal, opacity = 0.8, layerId = "raster") %>%
+    leaflet::addLegend(pal = pal, values = raster::values(r), title = "Raster value")
+}
+
+
+# server  -----------------------------------------------------------------
+
+
 mod_seabass_migration_server <- function(id) {
   moduleServer(id, function(input, output, session) {
-    
+
     output$month_label <- renderText({
       req(input$month)
       month.name[input$month]
     })
-    
+
     current_raster_stack <- reactive({
       req(input$seabass_prediction)
       if (input$seabass_prediction == "inside") {
@@ -45,7 +64,7 @@ mod_seabass_migration_server <- function(id) {
         prediction_layers[["Diff OWF"]]
       }
     })
-    
+
     current_palette <- reactive({
       req(input$seabass_prediction)
       if (input$seabass_prediction == "inside") {
@@ -56,31 +75,36 @@ mod_seabass_migration_server <- function(id) {
         prediction_palettes[["Diff OWF"]]
       }
     })
-    
+
     output$seabass_migration_map <- renderLeaflet({
       req(input$month)
-      r <- current_raster_stack()[[input$month]]
-      pal <- current_palette()
-      
-      make_base_map() %>%
-        leaflet::setView(lat = 51.5, lng = 2.5, zoom = 8) %>%
-        leaflet::addRasterImage(r, colors = pal, opacity = 0.8, layerId = "raster") %>%
-        leaflet::addLegend(pal = pal, values = raster::values(r), title = "Raster value")
+      render_migration_map(current_raster_stack()[[input$month]], current_palette())
     })
     
+    # output$seabass_migration_map <- renderLeaflet({
+    #   req(input$month)
+    #   r <- current_raster_stack()[[input$month]]
+    #   pal <- current_palette()
+    # 
+    #   make_base_map() %>%
+    #     leaflet::setView(lat = 51.5, lng = 2.5, zoom = 8) %>%
+    #     leaflet::addRasterImage(r, colors = pal, opacity = 0.8, layerId = "raster") %>%
+    #     leaflet::addLegend(pal = pal, values = raster::values(r), title = "Raster value")
+    # })
+
     observeEvent(input$prev_month, {
       updateSliderInput(session, "month", value = max(1, input$month - 1))
     })
-    
+
     observeEvent(input$next_month, {
       updateSliderInput(session, "month", value = min(12, input$month + 1))
     })
-    
+
     observe({
       req(input$month)
       r <- current_raster_stack()[[input$month]]
       pal <- current_palette()
-      
+
       leafletProxy("seabass_migration_map", session = session) %>%
         clearImages() %>%
         clearControls() %>%

@@ -11,18 +11,7 @@
 ##################################################################################
 ##################################################################################
 
-
-# install and load libraries ----------------------------------------------
-
-#install.packages("rstac")
-#install.packages("mregions2")
-library(rstac)
-library(purrr)
-library(arrow)
-library(dplyr)
-library(lubridate)
-library(leaflet)
-
+# TODO: clean up a bit
 
 # overview --------------------------------------------------------------------
 
@@ -70,8 +59,7 @@ c_all <- c_obj$collections |> vapply(`[[`, character(1), "id") %>% as_tibble()
 # this is the data that DUC4.2 is partially based upon. Here, the data will be 
 # 1) queried in .parquet format, 2) summarised (to #detections and #individuals per day),
 # and 3) saved in "./data/"
-# TODO: save tag serial numbers of individuals to calculate monthly stats from (num individuals per month)
-
+# TODO: potentially outsource ETN data from the rest of the EDITO STAC catalogue queries
 dataset_name <- "PhD_Goossens"
 etn_collection <- "animal_tracking_datasets"
 
@@ -97,70 +85,13 @@ for (feature in etn_items$features) {
 # Print the matching href
 #print(etn_dataset_href)
 
-etn_dataset <- arrow::read_parquet(etn_dataset_href, format = "parquet")
-## use etn data subset as long as .parquet is not working
-
-# etn_dataset <- readRDS("./data/detections.rds")
-
-# start <- "2021-01-01" %>% as.POSIXct()
-# end <- "2022-12-31" %>% as.POSIXct()
-
-etn_daily_sum <- 
-  etn_dataset %>% 
-  #dplyr::filter(datetime %>% between(start, end)) %>%
-  dplyr::mutate(date = date_time %>% as.Date()) %>%
-  # dplyr::mutate(date = datetime %>% as.Date()) %>% # for STAC dataset
-  dplyr::group_by(date, station_name) %>%
-  dplyr::summarise(
-     # latitude = mean(latitude, na.rm = T),
-     # longitude = mean(longitude, na.rm = T),
-     deploy_latitude = mean(deploy_latitude, na.rm = T),
-     deploy_longitude = mean(deploy_longitude, na.rm = T),
-     n_detections = n(),
-     n_individuals = tag_serial_number %>% unique() %>% length()
-     # , tag_serial_nums = paste0(tag_serial_number %>% unique(), collapse = ", ") 
-                     )
-
-# save as .RDS
-etn_daily_sum_path <- "./data/etn_sum_seabass.rds"
-saveRDS(etn_daily_sum, etn_daily_sum_path)
-
-etn_monthyear_individual_sum <- 
-  etn_dataset %>% 
-  #dplyr::filter(datetime %>% between(start, end)) %>%
-  dplyr::mutate(monthyear = date_time %>% floor_date(unit = 'months'))%>%
-  # get out total n of detection for that month
-  dplyr::group_by(monthyear) %>%
-  dplyr::mutate(n_detections_monthyear = n())%>%
-  dplyr::ungroup() %>%
-  ### get out total n of detections per station per month
-  dplyr::group_by(monthyear, station_name) %>%
-  dplyr::mutate(n_detections_monthyear_station = n())%>%
-  dplyr::ungroup() %>%
-  # dplyr::mutate(date = datetime %>% as.Date()) %>% # for STAC dataset
-  dplyr::group_by(monthyear, station_name, tag_serial_number) %>%
-  dplyr::summarise(
-    # latitude = mean(latitude, na.rm = T),
-    # longitude = mean(longitude, na.rm = T),
-    deploy_latitude = mean(deploy_latitude, na.rm = T),
-    deploy_longitude = mean(deploy_longitude, na.rm = T),
-    n_detections = n(),
-    n_detections_monthyear = n_detections_monthyear %>% unique(), # %>% paste0(collapse = ", "),
-    n_detections_monthyear_station = n_detections_monthyear_station %>% unique(), # %>% paste0(collapse = ", ")
-    # , tag_serial_nums = paste0(tag_serial_number %>% unique(), collapse = ", ") 
-  ) 
-
-# save as .RDS
-etn_monthyear_individual_sum_path <- "./data/etn_sum_seabass_monthyear_indivdual.rds"
-saveRDS(etn_monthyear_individual_sum, etn_monthyear_individual_sum_path)
-
 # appending row to wms_registry
 wms_registry <- add_row(
   wms_registry,
   env_data_name = "seabass acoustic detections",
   collection_name = etn_collection,
   wms_link    = etn_dataset_href,
-  wms_base    = etn_daily_sum_path,
+  wms_base    = "",
   wms_layer_name  = "",
   legend_link = "",
   .added_at        = Sys.time()) %>%

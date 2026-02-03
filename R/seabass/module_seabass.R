@@ -16,7 +16,7 @@ mod_seabass_ui <- function(id) {
   
   tabsetPanel(
     tabPanel("Migration predictions", mod_seabass_migration_ui(ns("migration"))),
-    tabPanel("acoustic telemetry data", mod_seabass_telemetry_ui(ns("telemetry"))),
+    tabPanel("acoustic telemetry data", mod_seabass_telemetry_ui(ns("telemetry_data"))),
     tabPanel("Environmental layers", mod_seabass_env_ui(ns("env")))
   )
 }
@@ -24,7 +24,12 @@ mod_seabass_ui <- function(id) {
 mod_seabass_server <- function(id) {
   moduleServer(id, function(input, output, session) {
     mod_seabass_migration_server("migration")
-    mod_seabass_telemetry_server("telemetry")
+    mod_seabass_telemetry_data_server(
+      "telemetry_data",
+      deployments = deployments,
+      etn_monthyear_individual_sum = etn_monthyear_individual_sum,
+      base_map_fun = make_base_map
+    )
     mod_seabass_env_server("env")
   })
 }
