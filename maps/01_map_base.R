@@ -51,19 +51,19 @@ map_base <-
   # north arrow
   leaflet::addControl( html = north.arrow.icon,
                        position = "topleft",
-                       className = "fieldset {border: 0;}") %>%
+                       className = "fieldset {border: 0;}") #%>%
   
   # minimap
-  addMiniMap(position = "topright",
-             width = 175,
-             height = 150,
-             zoomLevelOffset = -4,
-             zoomLevelFixed = T,
-             centerFixed = F,
-             aimingRectOptions = list(color = blue_medium, weight = 1, clickable = FALSE),
-             shadowRectOptions = list(color = blue_dark, weight = 1, clickable = FALSE, opacity = 0, fillOpacity = 0)
-             # ,tiles = providers$Esri.WorldStreetMap
-             , tiles = "https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png") #%>%
+  # addMiniMap(position = "topright",
+  #            width = 175,
+  #            height = 150,
+  #            zoomLevelOffset = -4,
+  #            zoomLevelFixed = T,
+  #            centerFixed = F,
+  #            aimingRectOptions = list(color = blue_medium, weight = 1, clickable = FALSE),
+  #            shadowRectOptions = list(color = blue_dark, weight = 1, clickable = FALSE, opacity = 0, fillOpacity = 0)
+  #            # ,tiles = providers$Esri.WorldStreetMap
+  #            , tiles = "https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png") #%>%
   
   # print button # loading a long time for now...investigate
   # leaflet.extras2::addEasyprint(

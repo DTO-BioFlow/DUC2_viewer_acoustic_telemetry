@@ -8,6 +8,10 @@ library(tidyr)
 library(htmlwidgets)
 library(RColorBrewer)
 
+# bugs: once clicled on prev/next month, yp canno click the animation pane anymroe
+# removing fish doesn;t work anymore
+# TODO: current month bold top right, remove minimap? Legend about size of pies.
+# only show in legend the individuals that were detected that month
 
 # load the base map
 map_base <- readRDS("./maps/01_map_base.rds")

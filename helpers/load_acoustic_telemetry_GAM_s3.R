@@ -16,6 +16,42 @@ library(terra)
 library(httr)
 
 # -----------------------
+# Create example rasters
+# (replace with rast("seabass.nc"), rast("porpoise.nc"))
+# -----------------------
+make_raster <- function(seed) {
+  set.seed(seed)
+  r <- rast(
+    nrows = 100, ncols = 100,
+    xmin = 0, xmax = 5,
+    ymin = 50, ymax = 52,
+    nlyrs = 12
+  )
+  values(r) <- runif(ncell(r) * 12)
+  names(r) <- month.name
+  r
+}
+
+r_seabass  <- make_raster(1)
+# Read into SpatRaster
+r_porpoise <- make_raster(2)
+
+# -----------------------
+# Palettes (once, per species)
+# -----------------------
+pal_seabass <- colorNumeric(
+  "viridis",
+  domain = values(r_seabass),
+  na.color = "transparent"
+)
+
+pal_porpoise <- colorNumeric(
+  "magma",
+  domain = values(r_porpoise),
+  na.color = "transparent"
+)
+
+# -----------------------
 # List of layers
 # -----------------------
 prediction_layers_info <- list(

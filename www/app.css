@@ -1,0 +1,66 @@
+/* TOP TAB STRIP + LOGO */
+.top-tabs {
+  position: relative;
+}
+
+/* UL holding the top-level tabs */
+.top-tabs > .tabbable > .nav-tabs {
+  background-color: var(--blue-light) !important;
+  padding: 6px 6px 0 6px;
+  border-radius: 6px;
+
+  display: flex;
+  align-items: center;
+  padding-right: 70px; /* space so the logo doesn't overlap tabs */
+}
+
+/* Logo positioned on the right edge of the tab strip */
+.top-tabs .top-tabs-logo {
+  position: absolute;
+  right: 25px;
+  top: 10px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.top-tabs .top-tabs-logo img {
+  display: block;
+}
+
+/* LOWER-LEVEL TAB STRIPS (inside Seabass / Porpoise) */
+.lower-level-tabs > .tabbable > .nav-tabs {
+  background-color: var(--blue-dark) !important;
+  color: white !important;
+  padding: 6px 6px 0 6px;
+  border-radius: 6px;
+}
+
+/* Tab title text color */
+.lower-level-tabs .tabbable > .nav-tabs > li > a {
+  color: white !important;
+}
+
+/* Active tab title */
+.lower-level-tabs .tabbable > .nav-tabs > li.active > a {
+  color: var(--blue-dark) !important;
+}
+
+/* HOME BUTTONS */
+.bioflow-btn {
+  background-color: var(--blue-medium) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.bioflow-btn--block {
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bioflow-btn--logo {
+  height: 60px;
+}

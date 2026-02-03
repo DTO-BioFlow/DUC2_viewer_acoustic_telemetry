@@ -97,10 +97,10 @@ for (feature in etn_items$features) {
 # Print the matching href
 #print(etn_dataset_href)
 
-# etn_dataset <- arrow::read_parquet(etn_dataset_href, format = "parquet")
+etn_dataset <- arrow::read_parquet(etn_dataset_href, format = "parquet")
 ## use etn data subset as long as .parquet is not working
 
-etn_dataset <- readRDS("./data/detections.rds")
+# etn_dataset <- readRDS("./data/detections.rds")
 
 # start <- "2021-01-01" %>% as.POSIXct()
 # end <- "2022-12-31" %>% as.POSIXct()
