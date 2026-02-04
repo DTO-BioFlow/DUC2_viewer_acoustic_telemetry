@@ -5,7 +5,7 @@
 *.rds
 
 # specific folders
-01_data/
+#01_data/
 #02_code/archive
 
 
@@ -51,7 +51,7 @@ vignettes/*.pdf
 .Renviron
 
 #Data
-/data
+#/data
 
 #Documentation
 02_code/01_boosted_regression_trees/documentation/CopyOftemplate_formulas_files/
