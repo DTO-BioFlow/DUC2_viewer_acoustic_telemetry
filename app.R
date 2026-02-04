@@ -7,6 +7,8 @@ library(glue)
 library(terra)
 library(htmltools)
 library(leaflet.minicharts)
+library(leaflet.extras)
+library(leafem)
 library(tidyr)
 library(RColorBrewer)
 library(rstac)
@@ -99,7 +101,16 @@ ui <- fluidPage(
 # server ------------------------------------------------------------------
 server <- function(input, output, session) {
   mod_home_server("home")
-  mod_seabass_server("seabass")
+  # mod_seabass_server("seabass")
+  # Pass the required data to mod_seabass_server
+  mod_seabass_server(
+    "seabass", 
+    deployments = deployments, 
+    etn_monthyear_individual_sum = etn_monthyear_individual_sum, 
+    base_map_fun = make_base_map,
+    prep_minicharts_inputs_fun = prep_minicharts_inputs,
+    make_env_wms_map_fun = make_env_wms_map
+  )
   mod_porpoise_server("porpoise")
 }
 

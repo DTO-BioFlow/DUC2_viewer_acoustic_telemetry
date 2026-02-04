@@ -21,18 +21,24 @@ mod_seabass_ui <- function(id) {
   )
 }
 
-mod_seabass_server <- function(id) {
+mod_seabass_server <- function(id, deployments, etn_monthyear_individual_sum, base_map_fun, prep_minicharts_inputs_fun, make_env_wms_map_fun) {
   moduleServer(id, function(input, output, session) {
     mod_seabass_migration_server("migration")
+    
+    # Pass the data as arguments to the submodules
     mod_seabass_telemetry_data_server(
       "telemetry_data",
-      deployments = deployments,
-      etn_monthyear_individual_sum = etn_monthyear_individual_sum,
-      base_map_fun = make_base_map
+      deployments = deployments,  # Pass the data here
+      etn_monthyear_individual_sum = etn_monthyear_individual_sum,  # And here
+      base_map_fun = make_base_map,  # Pass base map function if necessary
+      prep_minicharts_inputs_fun = prep_minicharts_inputs, # for the leaflet minicharts map
+      make_env_wms_map_fun = make_env_wms_map
     )
+    
     mod_seabass_env_server("env")
   })
 }
+
 
 # 
 # mod_seabass_ui <- function(id) {
