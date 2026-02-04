@@ -2,7 +2,7 @@
 *.html
 *.shp
 *.nc
-*.rds
+#*.rds
 
 # specific folders
 #01_data/
