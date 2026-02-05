@@ -42,21 +42,19 @@ mod_seabass_telemetry_ui <- function(id) {
 
 mod_seabass_telemetry_data_server <- function(
     id,
-    deployments,
+    prepped_data,
     etn_monthyear_individual_sum,
-    base_map_fun = make_base_map,   # reuse make_base_map()
-    prep_minicharts_inputs_fun = prep_minicharts_inputs, # for the leaflet minicharts map
-    prepped_data = prep_data
+    base_map_fun
 ) {
   moduleServer(id, function(input, output, session) {
     
     
-    stations <- prep_data$stations
-    anim_df  <- prep_data$anim_df
-    ids      <- prep_data$ids
-    months   <- prep_data$months
-    width_all  <- prep_data$width_all
-    height_all <- prep_data$height_all
+    stations <- prepped_data$stations
+    anim_df  <- prepped_data$anim_df
+    ids      <- prepped_data$ids
+    months   <- prepped_data$months
+    width_all  <- prepped_data$width_all
+    height_all <- prepped_data$height_all
     
     chart_layer_id <- paste0(
       anim_df$station_name, "__", format(anim_df$month, "%Y%m")

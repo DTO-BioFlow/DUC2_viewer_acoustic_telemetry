@@ -21,25 +21,41 @@ mod_seabass_ui <- function(id) {
   )
 }
 
-mod_seabass_server <- function(id, deployments, etn_monthyear_individual_sum, base_map_fun, prep_minicharts_inputs_fun, make_env_wms_map_fun) {
+mod_seabass_server <- function(id, 
+                               deployments, 
+                               etn_monthyear_individual_sum, 
+                               base_map_fun, 
+                               prep_minicharts_inputs_fun, 
+                               make_env_wms_map_fun,
+                               telemetry_gam_s3, 
+                               wms_layers) {     
   moduleServer(id, function(input, output, session) {
-    mod_seabass_migration_server("migration")
     
-    #prepare data for the leaflet minicharts
-    prep_data <- prep_minicharts_inputs_fun(deployments, etn_monthyear_individual_sum)
-    
-    # Pass the data as arguments to the submodules
-    mod_seabass_telemetry_data_server(
-      "telemetry_data",
-      deployments = deployments,  # Pass the data here
-      etn_monthyear_individual_sum = etn_monthyear_individual_sum,  # And here
-      base_map_fun = make_base_map,  # Pass base map function if necessary
-      prep_minicharts_inputs_fun = prep_minicharts_inputs, # for the leaflet minicharts map
-      # make_env_wms_map_fun = make_env_wms_map,
-      prepped_data = prep_data
+    # Migration submodule
+    mod_seabass_migration_server(
+      "migration",
+      telemetry_gam_s3 = telemetry_gam_s3,
+      base_map_fun = base_map_fun  # Pass the parameter, not global function
     )
     
-    mod_seabass_env_server("env", wms_layers = wms_layers, base_map_fun = make_base_map, env_map_fun = make_env_wms_map)
+    # Prepare data for the leaflet minicharts (do this ONCE)
+    prepped_data <- prep_minicharts_inputs_fun(deployments, etn_monthyear_individual_sum)
+    
+    # Telemetry submodule
+    mod_seabass_telemetry_data_server(
+      "telemetry_data",
+      prepped_data = prepped_data,
+      etn_monthyear_individual_sum = etn_monthyear_individual_sum,
+      base_map_fun = base_map_fun
+    )
+    
+    # Environmental submodule
+    mod_seabass_env_server(
+      "env", 
+      wms_layers = wms_layers,         # Use parameter name
+      base_map_fun = base_map_fun,     # Use parameter name
+      env_map_fun = make_env_wms_map_fun  # Use parameter name
+    )
   })
 }
 

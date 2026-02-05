@@ -106,15 +106,19 @@ ui <- fluidPage(
 # server ------------------------------------------------------------------
 server <- function(input, output, session) {
   mod_home_server("home")
-  # Pass the required data to mod_seabass_server
+  
+  # In app.R server function
   mod_seabass_server(
     "seabass", 
     deployments = deployments, 
     etn_monthyear_individual_sum = etn_monthyear_individual_sum, 
-    base_map_fun = make_base_map,
-    prep_minicharts_inputs_fun = prep_minicharts_inputs,
-    make_env_wms_map_fun = make_env_wms_map
+    base_map_fun = make_base_map,                    # Global function
+    prep_minicharts_inputs_fun = prep_minicharts_inputs,  # Global function
+    make_env_wms_map_fun = make_env_wms_map,        # Global function
+    telemetry_gam_s3 = telemetry_gam_s3,            # Data loaded in app.R
+    wms_layers = wms_layers                          # Data loaded in app.R
   )
+
   mod_porpoise_server("porpoise")
 }
 

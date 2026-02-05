@@ -35,7 +35,7 @@ mod_seabass_migration_ui <- function(id) {
 
 # make the map ------------------------------------------------------------
 
-render_migration_map <- function(r, pal, base_map_fun = make_base_map) {
+render_migration_map <- function(r, pal, base_map_fun) {
   base_map_fun() %>%
     leaflet::setView(lat = 51.5, lng = 2.5, zoom = 8) %>%
     leaflet::addRasterImage(r, colors = pal, opacity = 0.8, layerId = "raster") %>%
@@ -46,7 +46,7 @@ render_migration_map <- function(r, pal, base_map_fun = make_base_map) {
 # server  -----------------------------------------------------------------
 
 
-mod_seabass_migration_server <- function(id, telemetry_gam_s3 = telemetry_gam_s3) {
+mod_seabass_migration_server <- function(id, telemetry_gam_s3, base_map_fun) {
   moduleServer(id, function(input, output, session) {
 
     output$month_label <- renderText({
@@ -78,7 +78,9 @@ mod_seabass_migration_server <- function(id, telemetry_gam_s3 = telemetry_gam_s3
 
     output$seabass_migration_map <- renderLeaflet({
       req(input$month)
-      render_migration_map(current_raster_stack()[[input$month]], current_palette())
+      render_migration_map(r = current_raster_stack()[[input$month]], 
+                           pal = current_palette(),
+                           base_map_fun = base_map_fun)
     })
     
     # output$seabass_migration_map <- renderLeaflet({
