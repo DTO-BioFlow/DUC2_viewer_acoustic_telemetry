@@ -1,4 +1,7 @@
-mod_home_ui <- function(id) {
+mod_home_ui <- function(id, 
+                        bioflow_url = bioflow_url, 
+                        bioflow_duc2_url = bioflow_duc2_url,
+                        colors = dto_colors) {
   ns <- NS(id)
   
   fluidRow(
@@ -20,7 +23,7 @@ mod_home_ui <- function(id) {
           target = "_blank",
           rel = "noopener",
           class = "btn btn-primary d-flex align-items-center justify-content-center",
-          style = glue::glue("margin-bottom:25px;background-color:{blue_medium}; color:white;")
+          style = glue::glue("margin-bottom:25px;background-color:{dto_colors$blue_medium}; color:white;")
         ),
         tags$br(),
         tags$a(

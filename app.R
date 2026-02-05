@@ -1,9 +1,10 @@
-
-
+## TODO: outsource all that happens before `ui <-` into global.R -> gets run before everything else
+# load libraries
 library(shiny)
 library(DT)
 library(leaflet)
 library(glue)
+library(httr)
 library(terra)
 library(htmltools)
 library(leaflet.minicharts)
@@ -40,9 +41,9 @@ ui <- fluidPage(
   tags$head(
     tags$style(HTML(glue::glue("
       :root {{
-        --blue-light: {blue_light};
-        --blue-medium: {blue_medium};
-        --blue-dark: {blue_dark};
+        --blue-light: {dto_colors$blue_light};
+        --blue-medium: {dto_colors$blue_medium};
+        --blue-dark: {dto_colors$blue_dark};
       }}
     "))),
     tags$link(rel = "stylesheet", type = "text/css", href = "app.css")
@@ -71,7 +72,11 @@ ui <- fluidPage(
         id = "tabsetPanelID",
         type = "tabs",
         
-        tabPanel("Home", style = "font-size: 16px;", mod_home_ui("home")),
+        tabPanel("Home", style = "font-size: 16px;", 
+                 mod_home_ui("home", 
+                             bioflow_url = bioflow_url, 
+                             bioflow_duc2_url = bioflow_duc2_url,
+                             colors = dto_colors)),
         
         tabPanel(
           title = tagList(
@@ -101,7 +106,6 @@ ui <- fluidPage(
 # server ------------------------------------------------------------------
 server <- function(input, output, session) {
   mod_home_server("home")
-  # mod_seabass_server("seabass")
   # Pass the required data to mod_seabass_server
   mod_seabass_server(
     "seabass", 

@@ -1,33 +1,10 @@
 
-source("./helpers/wrangle_acoustic_telemetry_data.R")
+# source("./helpers/wrangle_acoustic_telemetry_data.R")
 
 # prep data ---------------------------------------------------------------
 
-prep <- prep_minicharts_inputs(deployments, etn_monthyear_individual_sum)
+# prep <- prep_minicharts_inputs(deployments, etn_monthyear_individual_sum)
 
-stations <- prep$stations
-anim_df  <- prep$anim_df
-ids      <- prep$ids
-months   <- prep$months
-width_all  <- prep$width_all
-height_all <- prep$height_all
-
-chart_layer_id <- paste0(
-  anim_df$station_name, "__", format(anim_df$month, "%Y%m")
-)
-layer_id_all <- anim_df$station_name  # length = nrow(anim_df)
-
-# checks
-stopifnot(length(chart_layer_id) == nrow(anim_df))
-
-n_st <- nrow(stations)
-n_m  <- length(months)
-
-stopifnot(nrow(anim_df) == n_st * n_m)
-stopifnot(all(table(anim_df$month) == n_st))
-
-
-init_prods <- ids[1:min(30, length(ids))]
 
 # ui ----------------------------------------------------------------------
 
@@ -55,13 +32,48 @@ mod_seabass_telemetry_ui <- function(id) {
 
 # server ------------------------------------------------------------------
 
+# mod_seabass_telemetry_data_server(
+#   "telemetry_data",
+#   deployments = deployments,  # Pass the data here
+#   etn_monthyear_individual_sum = etn_monthyear_individual_sum,  # And here
+#   base_map_fun = make_base_map,  # Pass base map function if necessary
+#   prep_minicharts_inputs_fun = prep_minicharts_inputs, # for the leaflet minicharts map
+#   make_env_wms_map_fun = make_env_wms_map
+
 mod_seabass_telemetry_data_server <- function(
     id,
     deployments,
     etn_monthyear_individual_sum,
-    base_map_fun = make_base_map   # lets you reuse your make_base_map()
+    base_map_fun = make_base_map,   # reuse make_base_map()
+    prep_minicharts_inputs_fun = prep_minicharts_inputs, # for the leaflet minicharts map
+    prepped_data = prep_data
 ) {
   moduleServer(id, function(input, output, session) {
+    
+    
+    stations <- prep_data$stations
+    anim_df  <- prep_data$anim_df
+    ids      <- prep_data$ids
+    months   <- prep_data$months
+    width_all  <- prep_data$width_all
+    height_all <- prep_data$height_all
+    
+    chart_layer_id <- paste0(
+      anim_df$station_name, "__", format(anim_df$month, "%Y%m")
+    )
+    layer_id_all <- anim_df$station_name  # length = nrow(anim_df)
+    
+    # checks
+    stopifnot(length(chart_layer_id) == nrow(anim_df))
+    
+    n_st <- nrow(stations)
+    n_m  <- length(months)
+    
+    stopifnot(nrow(anim_df) == n_st * n_m)
+    stopifnot(all(table(anim_df$month) == n_st))
+    
+    
+    init_prods <- ids[1:min(30, length(ids))]
 
     # palette (shuffle colors around)
     permute_spread <- function(n) {

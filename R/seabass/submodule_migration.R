@@ -35,8 +35,8 @@ mod_seabass_migration_ui <- function(id) {
 
 # make the map ------------------------------------------------------------
 
-render_migration_map <- function(r, pal) {
-  make_base_map() %>%
+render_migration_map <- function(r, pal, base_map_fun = make_base_map) {
+  base_map_fun() %>%
     leaflet::setView(lat = 51.5, lng = 2.5, zoom = 8) %>%
     leaflet::addRasterImage(r, colors = pal, opacity = 0.8, layerId = "raster") %>%
     leaflet::addLegend(pal = pal, values = raster::values(r), title = "Raster value")
@@ -46,7 +46,7 @@ render_migration_map <- function(r, pal) {
 # server  -----------------------------------------------------------------
 
 
-mod_seabass_migration_server <- function(id) {
+mod_seabass_migration_server <- function(id, telemetry_gam_s3 = telemetry_gam_s3) {
   moduleServer(id, function(input, output, session) {
 
     output$month_label <- renderText({
@@ -57,22 +57,22 @@ mod_seabass_migration_server <- function(id) {
     current_raster_stack <- reactive({
       req(input$seabass_prediction)
       if (input$seabass_prediction == "inside") {
-        prediction_layers[["Predictions inside OWF"]]
+        telemetry_gam_s3$prediction_layers[["Predictions inside OWF"]]
       } else if (input$seabass_prediction == "outside") {
-        prediction_layers[["Predictions outside OWF"]]
+        telemetry_gam_s3$prediction_layers[["Predictions outside OWF"]]
       } else {
-        prediction_layers[["Diff OWF"]]
+        telemetry_gam_s3$prediction_layers[["Diff OWF"]]
       }
     })
 
     current_palette <- reactive({
       req(input$seabass_prediction)
       if (input$seabass_prediction == "inside") {
-        prediction_palettes[["Predictions inside OWF"]]
+        telemetry_gam_s3$prediction_palettes[["Predictions inside OWF"]]
       } else if (input$seabass_prediction == "outside") {
-        prediction_palettes[["Predictions outside OWF"]]
+        telemetry_gam_s3$prediction_palettes[["Predictions outside OWF"]]
       } else {
-        prediction_palettes[["Diff OWF"]]
+        telemetry_gam_s3$prediction_palettes[["Diff OWF"]]
       }
     })
 

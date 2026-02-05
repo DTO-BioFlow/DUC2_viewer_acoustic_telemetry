@@ -10,11 +10,6 @@
 ##################################################################################
 ##################################################################################
 
-
-# install and load libraries ----------------------------------------------
-library(terra)
-library(httr)
-
 # -----------------------
 # Create example rasters
 # (replace with rast("seabass.nc"), rast("porpoise.nc"))
@@ -103,3 +98,16 @@ env_palettes <- lapply(env_layers, function(r) {
 data_palettes <- lapply(data_layers, function(r) {
   colorNumeric("viridis", values(r), na.color = "transparent")
 })
+
+# -----------------------
+# Save outputs needed in the app in a named list
+# -----------------------
+
+telemetry_gam_s3 <-
+  list(prediction_layers = prediction_layers,
+       env_layers = env_layers,
+       data_layers = data_layers,
+       pal_seabass = pal_seabass,
+       prediction_palettes = prediction_palettes,
+       env_palettes = env_palettes,
+       data_palettes = data_palettes)
