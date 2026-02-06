@@ -4,19 +4,17 @@ An interactive RShiny application for visualizing acoustic telemetry data and en
 
 ![DTO-Bioflow logo](www/Logo_BIO-Flow2023_Final_Positive.png)
 
+## 🎯 About
 
-## 🎯 About 
-
-This RShiny app is part of the Horizon Europe-funded project **DTO-Bioflow** ([dto-bioflow.eu](https://dto-bioflow.eu), Grant ID 101112823, <https://doi.org/10.3030/101112823>). It provides interactive visualizations of:
+This application is part of the Horizon Europe-funded project **DTO-Bioflow** ([dto-bioflow.eu](https://dto-bioflow.eu), Grant ID 101112823, <https://doi.org/10.3030/101112823>). It provides interactive visualizations of:
 
 -   **Acoustic telemetry data** from the [European Tracking Network](https://www.lifewatch.be/etn/)
 -   **Species migration predictions** (European seabass, harbour porpoise)
--   **Environmental and Human activities layers** via WMS services, accessed via the [EDITO STAC catalogue](https://viewer.dive.edito.eu/map?c=0,0,2.87&catalog=https:%2F%2Fapi.dive.edito.eu%2Fdata%2Fcatalogs)
--   *To be added later on: An overlap of different species (spatially and temporally) with human activities*
+-   **Environmental layers** via WMS services from [EDITO STAC catalog](https://viewer.dive.edito.eu/map?c=0,0,2.26&catalog=https:%2F%2Fapi.dive.edito.eu%2Fdata%2Fcatalogs)
 
 🔗 Learn more: [DUC2 - Impact of Offshore Infrastructures](https://dto-bioflow.eu/use-cases/duc-2-impact-offshore-infrastructures)
 
-## ✨ Features #
+## ✨ Features
 
 ### European Seabass (*Dicentrarchus labrax*)
 
@@ -28,7 +26,6 @@ This RShiny app is part of the Horizon Europe-funded project **DTO-Bioflow** ([d
 
 -   Species distribution data
 -   Environmental correlates
--   Dashboard enabling exploration of Passive Acoustic Monitoring (PAM) data
 
 ## 🚀 Installation
 
@@ -36,6 +33,7 @@ This RShiny app is part of the Horizon Europe-funded project **DTO-Bioflow** ([d
 
 -   R (≥ 4.0)
 -   RStudio (recommended)
+-   Docker (optional, for containerized deployment)
 
 ### Required R Packages
 
@@ -46,6 +44,12 @@ install.packages(c(
   "tidyr", "RColorBrewer", "rstac", "purrr", "arrow",
   "dplyr", "lubridate"
 ))
+```
+
+Alternatively, use `renv` to restore the exact package environment:
+
+``` r
+renv::restore()
 ```
 
 ### Clone the Repository
@@ -61,33 +65,44 @@ cd DUC2_viewer
 DUC2_viewer/
 ├── global.R                      # Loads libraries, data, and sources all scripts
 ├── app.R                         # Main application file (UI + Server)
+├── Dockerfile                    # Docker container configuration
+├── renv.lock                     # R package dependency lock file
+├── requirements.txt              # Python requirements (if applicable)
+├── LICENSE                       # License file
+├── README.md                     # This file
 │
-├── R/                            # Shiny modules and UI components
-│   ├── config.R                  # Configuration (colors, URLs)
-│   ├── mod_home.R                # Home page module
-│   ├── mod_porpoise.R            # Harbour porpoise module
-│   ├── map_base.R                # Base map rendering function
-│   ├── map_environmental.R       # Environmental WMS map function
+├── R/                            # All R scripts (modules, helpers, config)
+│   ├── 00_config.R               # Configuration (colors, URLs)
 │   │
-│   └── seabass/                  # European seabass submodules
-│       ├── mod_seabass.R         # Parent seabass module
-│       ├── submod_migration.R    # Migration predictions submodule
-│       ├── submod_telemetry.R    # Acoustic telemetry submodule
-│       └── submod_environmental.R # Environmental layers submodule
-│
-├── helpers/                      # Data processing & utility functions
-│   ├── source_all_files.R        # Recursively source all R files
-│   ├── load_acoustic_telemetry_GAM_s3.R  # Load GAM predictions from S3
-│   ├── load_STAC_metadata.R      # Load STAC catalog metadata
-│   └── wrangle_acoustic_telemetry_data.R # Data wrangling functions
+│   ├── module_home.R             # Home page module
+│   ├── module_porpoise.R         # Harbour porpoise module
+│   │
+│   ├── seabass_module.R          # Parent seabass module
+│   ├── seabass_submodule_migration.R         # Migration predictions submodule
+│   ├── seabass_submodule_telemetry_data.R    # Acoustic telemetry submodule
+│   ├── seabass_submodule_environmental_data.R # Environmental layers submodule
+│   │
+│   ├── maps.R                    # Map rendering functions (base, environmental)
+│   ├── EDITO_STAC_data.R         # Load STAC catalog metadata
+│   ├── helper_load_acoustic_telemetry_GAM_s3.R  # Load GAM predictions from S3
+│   └── helper_wrangle_acoustic_telemetry_data.R # Data wrangling functions
 │
 ├── data/                         # Data files
+│   ├── animals.rds               # Tagged animal metadata
 │   ├── deployments.rds           # Acoustic receiver deployments
-│   └── etn_sum_seabass_monthyear_individual.rds  # Detection summaries
+│   ├── detections.rds            # Raw detection data
+│   ├── etn_sum_seabass.rds       # Seabass detection summaries
+│   ├── etn_sum_seabass_monthyear_individual.rds       # Monthly individual summaries
+│   ├── etn_sum_seabass_monthyear_individual_subset.rds # Subset for testing
+│   └── EDITO_STAC_layers_metadata.csv  # STAC environmental layer metadata
 │
 └── www/                          # Static web assets
     ├── app.css                   # Custom CSS styles
-    └── *.png                     # Images (logos, icons)
+    ├── Logo_BIO-Flow2023_Final_Positive.png    # DTO-Bioflow logo (light)
+    ├── Logo_BIO-Flow2023_Final_Negative.png    # DTO-Bioflow logo (dark)
+    ├── D_labrax_phylopic_CC0.png               # Seabass icon
+    ├── P_phocoena_phylopic_CC0.png             # Porpoise icon
+    └── north_arrow.png                         # Map north arrow
 ```
 
 ### Key Files
@@ -96,9 +111,14 @@ DUC2_viewer/
 |-----------------------------|-------------------------------------------|
 | `global.R` | Runs once on app startup; loads libraries, data, and sources all R scripts |
 | `app.R` | Defines UI and server logic; calls module UI/server functions |
-| `R/config.R` | Stores configuration variables (colors, URLs, etc.) |
-| `R/mod_*.R` | Shiny modules (self-contained UI/server pairs) |
-| `helpers/*.R` | Pure R functions for data loading and processing |
+| `R/00_config.R` | Stores configuration variables (colors, URLs, etc.) |
+| `R/module_*.R` | Main Shiny modules (home, porpoise) |
+| `R/seabass_*.R` | Seabass module and submodules |
+| `R/maps.R` | Map rendering functions (base map, environmental WMS) |
+| `R/helper_*.R` | Helper functions for data loading and processing |
+| `R/EDITO_STAC_data.R` | Functions to load STAC catalog metadata |
+| `Dockerfile` | Container configuration for deployment |
+| `renv.lock` | Package dependency snapshot for reproducibility |
 
 ## 🏃 Running the Application
 
@@ -119,16 +139,25 @@ shiny::runApp()
 R -e "shiny::runApp()"
 ```
 
+### Using Docker
+
+``` bash
+docker build -t duc2-viewer .
+docker run -p 3838:3838 duc2-viewer
+```
+
+Then navigate to `http://localhost:3838` in your browser.
+
 ## 🔧 Adding New Modules
 
 This application uses a **modular architecture**. Each tab/feature is a self-contained module.
 
 ### Step 1: Create Module File
 
-Create a new file in `R/` (e.g., `R/mod_mynewspecies.R`):
+Create a new file in `R/` (e.g., `R/module_mynewspecies.R`):
 
 ``` r
-# R/mod_mynewspecies.R
+# R/module_mynewspecies.R
 
 # UI Function
 mod_mynewspecies_ui <- function(id) {
@@ -188,21 +217,13 @@ server <- function(input, output, session) {
 }
 ```
 
-### Step 4: Load Required Data
-
-In `global.R`, add data loading:
-
-``` r
-# In global.R
-my_species_data <- readRDS("data/my_species_data.rds")
-```
-
 ### 🔑 Key Principles
 
 1.  **Function Parameters**: Always pass functions and data as parameters to modules
 2.  **Use Parameter Names**: Inside modules, use parameter names (e.g., `base_map_fun`), not global function names (e.g., `make_base_map`)
 3.  **Namespace**: Use `ns <- NS(id)` in UI and wrap input/output IDs with `ns()`
 4.  **Self-Contained**: Each module should be independent and reusable
+5.  **File Organization**: All R scripts go in `R/` folder; use descriptive naming (e.g., `module_*.R`, `helper_*.R`)
 
 ### Example Module Call Chain
 
@@ -216,7 +237,7 @@ mod_seabass_server(
   base_map_fun = make_base_map  # ← Global function name
 )
 
-# In R/mod_seabass.R (receive as parameter)
+# In R/seabass_module.R (receive as parameter)
 mod_seabass_server <- function(id, base_map_fun) {
   moduleServer(id, function(input, output, session) {
     
@@ -228,7 +249,7 @@ mod_seabass_server <- function(id, base_map_fun) {
   })
 }
 
-# In R/seabass/submod_migration.R (use parameter)
+# In R/seabass_submodule_migration.R (use parameter)
 mod_seabass_migration_server <- function(id, base_map_fun) {
   moduleServer(id, function(input, output, session) {
     
@@ -242,7 +263,7 @@ mod_seabass_migration_server <- function(id, base_map_fun) {
 ## 📊 Data Sources
 
 -   **Acoustic Telemetry**: [European Tracking Network (ETN)](https://www.lifewatch.be/etn/)
--   **Environmental Data**: STAC catalog via `load_STAC_metadata()`
+-   **Environmental Data**: EDITO STAC catalog (metadata in `data/EDITO_STAC_layers_metadata.csv`)
 -   **Species Predictions**: GAM models from S3 storage
 
 ## 🤝 Contributing
@@ -258,9 +279,20 @@ mod_seabass_migration_server <- function(id, base_map_fun) {
 ### Code Style
 
 -   Use `snake_case` for function and variable names
+-   Place all R scripts in the `R/` folder
+-   Prefix helper functions with `helper_` (e.g., `helper_load_data.R`)
+-   Prefix modules with `module_` (e.g., `module_home.R`)
 -   Comment complex logic
 -   Keep modules self-contained
 -   Pass data and functions as parameters (avoid global dependencies)
+
+### File Naming Conventions
+
+-   **Configuration**: `00_config.R` (prefix with `00_` to load first)
+-   **Modules**: `module_*.R` or `[species]_module.R`
+-   **Submodules**: `[species]_submodule_*.R`
+-   **Helpers**: `helper_*.R`
+-   **Map functions**: `maps.R`
 
 ## 👥 Contributors
 
@@ -270,9 +302,7 @@ mod_seabass_migration_server <- function(id, base_map_fun) {
 
 -   Technical University of Denmark: Asbjørn Christensen
 
-## 📄 License
-
-MIT
+[Marine Observation Centre, VLIZ](https://vliz.be/en/what-we-do/research/marine-observation-centre)
 
 ## 🔗 Links
 

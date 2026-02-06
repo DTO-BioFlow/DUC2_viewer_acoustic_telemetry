@@ -31,10 +31,10 @@ COPY renv.lock renv/ ./
 
 # Install renv and restore packages
 RUN R -e 'install.packages("renv", repos="https://cloud.r-project.org")' \
-    && R -e 'renv::restore(clean = TRUE)'
+    && R -e 'renv::restore()'
 
 # Copy all R files
-COPY . .
+COPY * .
 
 # Expose Shiny port
 EXPOSE 3838
