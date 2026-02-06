@@ -1,4 +1,40 @@
-source("global.R") #should run automatic but doesn't for the moment...
+
+# Load libraries ----------------------------------------------------------
+
+library(shiny)
+library(DT)
+library(leaflet)
+library(glue)
+library(rstac)
+library(httr)
+library(terra)
+library(htmltools)
+library(leaflet.minicharts)
+library(leaflet.extras)
+library(leafem)
+library(tidyr)
+library(RColorBrewer)
+library(rstac)
+library(purrr)
+library(arrow)
+library(dplyr)
+library(lubridate)
+
+
+# Load data ---------------------------------------------------------------
+deployments <- readRDS("data/deployments.rds")
+
+# Load STAC metadata ------------------------------------------------------
+wms_layers <- load_STAC_metadata(metadata_csv = "data/EDITO_STAC_layers_metadata.csv")
+telemetry_gam_s3 <- load_acoustic_telemetry_GAM_s3(s3_bucket_url = s3_bucket_seabass_url)
+
+
+# load ETN data sum -------------------------------------------------------
+
+etn_sum_monthyear_path <- "etn_sum_seabass_monthyear_individual.rds"
+etn_monthyear_individual_sum <- build_monthyear_rds(output_path = etn_sum_monthyear_path,
+                                                    wms_layer_metadata = wms_layers,
+                                                    dataset_key = "seabass acoustic detections")
 
 # ui ----------------------------------------------------------------------
 ui <- fluidPage(

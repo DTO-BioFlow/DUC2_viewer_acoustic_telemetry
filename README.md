@@ -2,20 +2,10 @@
 
 An interactive RShiny application for visualizing acoustic telemetry data and environmental layers for the DTO-Bioflow Digital Use Case 2 (DUC2): Impact of Offshore Energy Installations on Marine Life.
 
-![DTO-Bioflow logo](www/Logo_BIO-Flow2023_Final_Positive.png){width="800"}
+![DTO-Bioflow logo](www/Logo_BIO-Flow2023_Final_Positive.png)
 
-## 📋 Table of Contents
 
--   [About](#about)
--   [Features](#features)
--   [Installation](#installation)
--   [Project Structure](#project-structure)
--   [Running the Application](#running-the-application)
--   [Adding New Modules](#adding-new-modules)
--   [Contributing](#contributing)
--   [License](#license)
-
-## 🎯 About {#about}
+## 🎯 About 
 
 This RShiny app is part of the Horizon Europe-funded project **DTO-Bioflow** ([dto-bioflow.eu](https://dto-bioflow.eu), Grant ID 101112823, <https://doi.org/10.3030/101112823>). It provides interactive visualizations of:
 
@@ -26,7 +16,7 @@ This RShiny app is part of the Horizon Europe-funded project **DTO-Bioflow** ([d
 
 🔗 Learn more: [DUC2 - Impact of Offshore Infrastructures](https://dto-bioflow.eu/use-cases/duc-2-impact-offshore-infrastructures)
 
-## ✨ Features {#features}
+## ✨ Features #
 
 ### European Seabass (*Dicentrarchus labrax*)
 
@@ -40,7 +30,7 @@ This RShiny app is part of the Horizon Europe-funded project **DTO-Bioflow** ([d
 -   Environmental correlates
 -   Dashboard enabling exploration of Passive Acoustic Monitoring (PAM) data
 
-## 🚀 Installation {#installation}
+## 🚀 Installation
 
 ### Prerequisites
 
@@ -65,7 +55,7 @@ git clone https://github.com/your-org/DUC2_viewer.git
 cd DUC2_viewer
 ```
 
-## 📁 Project Structure {#project-structure}
+## 📁 Project Structure
 
 ```         
 DUC2_viewer/
@@ -110,7 +100,7 @@ DUC2_viewer/
 | `R/mod_*.R` | Shiny modules (self-contained UI/server pairs) |
 | `helpers/*.R` | Pure R functions for data loading and processing |
 
-## 🏃 Running the Application {#running-the-application}
+## 🏃 Running the Application
 
 ### From RStudio
 
@@ -129,7 +119,7 @@ shiny::runApp()
 R -e "shiny::runApp()"
 ```
 
-## 🔧 Adding New Modules {#adding-new-modules}
+## 🔧 Adding New Modules
 
 This application uses a **modular architecture**. Each tab/feature is a self-contained module.
 
@@ -255,7 +245,7 @@ mod_seabass_migration_server <- function(id, base_map_fun) {
 -   **Environmental Data**: STAC catalog via `load_STAC_metadata()`
 -   **Species Predictions**: GAM models from S3 storage
 
-## 🤝 Contributing {#contributing}
+## 🤝 Contributing
 
 ### Development Workflow
 
@@ -280,7 +270,7 @@ mod_seabass_migration_server <- function(id, base_map_fun) {
 
 -   Technical University of Denmark: Asbjørn Christensen
 
-## 📄 License {#license}
+## 📄 License
 
 MIT
 

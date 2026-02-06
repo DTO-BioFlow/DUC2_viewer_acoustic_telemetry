@@ -31,34 +31,36 @@ summarise_etn_monthyear_individual <- function(etn_dataset) {
 }
 
 build_monthyear_rds <- function(
-    out_path = "data/etn_sum_seabass_monthyear_individual.rds",
-    wms_layers = NULL,
-    metadata_fun = load_STAC_metadata,
-    dataset_key = "seabass acoustic detections"
+    output_path,
+    wms_layer_metadata,
+    dataset_key
 ) {
-  if (is.null(wms_layers)) wms_layers <- metadata_fun()
-  
-  # etn_dataset <- load_etn_dataset(wms_layers, key = dataset_key)
-  
-  # if STAC etn data are unavailable
-  etn_dataset <- 
-    readRDS("./data/detections.rds") %>%
-      dplyr::rename(latitude = deploy_latitude,
-                    longitude = deploy_longitude,
-                    datetime = date_time)
-  
-  etn_sum <- summarise_etn_monthyear_individual(etn_dataset)
-  
+    
+    if (!file.exists(output_path)) { #if summary file does not yet exist -> make it running `summarise_etn_monthyear_individual()`
+      # # TODO: change so that load_etn_dataset is used, but for now this breaks the submodule_acoustic_telemetry_data.R plots
+      # etn_dataset <- load_etn_dataset(wms_layers, key = dataset_key)
+      
+      # if STAC etn data are unavailable - to remove later
+      etn_dataset <-
+        readRDS("./data/detections.rds") %>%
+        dplyr::rename(latitude = deploy_latitude,
+                      longitude = deploy_longitude,
+                      datetime = date_time)
+      
+      etn_sum <- summarise_etn_monthyear_individual(etn_dataset)
+      # write summary df as .rds
+      saveRDS(etn_sum, output_path)
+    }
+  etn_sum <- readRDS(output_path)
+    
   # checks for dublicates
   stopifnot(!anyDuplicated(etn_sum[c("monthyear","station_name","tag_serial_number")]))
   
-  
-  saveRDS(etn_sum, out_path)
+  # return .rds
   invisible(etn_sum)
 }
 
-
-# preapre minicharts leaflet inputs
+# prepare minicharts leaflet inputs
 
 prep_minicharts_inputs <- function(deployments, etn_monthyear_individual_sum) {
   
@@ -73,7 +75,7 @@ prep_minicharts_inputs <- function(deployments, etn_monthyear_individual_sum) {
     dplyr::distinct(station_name, lon, lat) %>%
     dplyr::arrange(station_name)
   
-  # detections wide (already unique per monthyear/station/tag from your stopifnot)
+  # detections wide 
   detections_wide <- etn_monthyear_individual_sum %>%
     dplyr::transmute(
       month = as.Date(paste0(format(monthyear, "%Y-%m"), "-01")),
@@ -88,15 +90,6 @@ prep_minicharts_inputs <- function(deployments, etn_monthyear_individual_sum) {
       values_fill = 0,
       values_fn   = sum  # safety: if duplicates exist, sum them
     )
-  
-  # detections_wide <- etn_monthyear_individual_sum %>%
-  #   dplyr::mutate(month = as.Date(paste0(format(monthyear, "%Y-%m"), "-01"))) %>%
-  #   tidyr::pivot_wider(
-  #     names_from  = tag_serial_number,
-  #     values_from = n_detections,
-  #     names_prefix = "id_",
-  #     values_fill  = 0
-  #   )
   
   ids <- names(detections_wide %>% dplyr::select(dplyr::starts_with("id_")))
   months <- sort(unique(detections_wide$month))

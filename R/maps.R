@@ -5,10 +5,53 @@
 # Email: lotte.pohl@vliz.be
 # Date: 2026-02-03
 # Script Name: ~/DUC2_viewer_acoustic_telemetry/R/map_environmental.R
-# Script Description: make a leaflet map with several environmental layers as overlaygroups 
+# Script Description: make a base leaflet map, and a map with several environmental layers as overlaygroups 
 
 ##################################################################################
 ##################################################################################
+
+
+# 1. base layer map -------------------------------------------------------
+
+make_base_map <- function(lng = 3, lat = 51.5, zoom = 8,
+                          arrow_src = "north_arrow.png") {
+  
+  
+  north_arrow <-
+    "<img src='https://www.clipartbest.com/cliparts/yTo/Lgr/yToLgryGc.png' style='width:35px;height:45px;'>"
+  
+  # ## TODO: change to file in .www/, not working for the moment
+  # north_arrow <- sprintf(
+  #   "<img src='%s' style='width:35px;height:45px;'>",
+  #   arrow_src
+  # )
+  
+  leaflet::leaflet() %>%
+    leaflet::setView(lng, lat, zoom = zoom) %>%
+    leaflet::addMapPane("basePane", zIndex = 100) %>%
+    leaflet::addTiles(group = "Open Street Map",
+                      options = leaflet::tileOptions(pane = "basePane")) %>%
+    leaflet::addTiles(urlTemplate = "https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png",
+                      group = "EMODnet Bathymetry",
+                      options = leaflet::tileOptions(pane = "basePane")) %>%
+    leaflet::addProviderTiles("CartoDB.Positron",
+                              group = "CartoDB.Positron",
+                              options = leaflet::tileOptions(pane = "basePane")) %>%
+    leafem::addMouseCoordinates() %>%
+    leaflet.extras::addFullscreenControl() %>%
+    leaflet::addScaleBar(position = "bottomleft",
+                         options = leaflet::scaleBarOptions(maxWidth = 150, imperial = FALSE)) %>%
+    leaflet::addControl(html = north_arrow,
+                        position = "topleft",
+                        className = "fieldset {border: 0;}") %>%
+    leaflet::addLayersControl(
+      baseGroups = c("CartoDB.Positron", "Open Street Map", "EMODnet Bathymetry"),
+      options = layersControlOptions(collapsed = FALSE),
+      position = "bottomleft"
+    ) 
+}
+
+# 2. environmental map ----------------------------------------------------
 
 # --- helper: html for legend box ---
 legend_control <- function(id, title, img_url) {
@@ -23,15 +66,13 @@ legend_control <- function(id, title, img_url) {
 # --- main factory: returns the environmental WMS leaflet map ---
 make_env_wms_map <- function(
     base_map,
-    wms_layers = NULL,
+    wms_layers,
     hide_groups = c(
       "Bathymetry (multicolor)", "Seabed substrates", "Seabed habitats",
       "Sea convention polygons", "Marine Spatial Plans",
       "Submarine Power Cables (SPC)", "Shipwrecks"
     )
 ) {
-  # load WMS metadata
-  wms_layers <- load_STAC_metadata()
   
   # TODO: make EEZ able to be toggled on/off
   # EEZ legend
