@@ -34,7 +34,7 @@ RUN R -e 'install.packages("renv", repos="https://cloud.r-project.org")' \
     && R -e 'renv::restore(clean = TRUE)'
 
 # Copy all R files
-COPY *.R .
+COPY . .
 
 # Expose Shiny port
 EXPOSE 3838
