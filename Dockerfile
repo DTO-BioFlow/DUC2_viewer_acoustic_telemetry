@@ -27,19 +27,22 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/app
 
 # Copy renv.lock and renv folder first for caching
-COPY renv.lock renv/ ./
-
+COPY renv.lock renv.lock
+COPY renv/activate.R renv/activate.R
+COPY renv/settings.json renv/settings.json
+COPY .Rprofile .Rprofile
 # Install renv and restore packages
+
 RUN R -e 'install.packages("renv", repos="https://cloud.r-project.org")' \
     && R -e 'renv::restore()'
 
 # Copy all R files
-COPY * .
-
+COPY . .
 # Expose Shiny port
 EXPOSE 3838
 
 # Default command: run the Shiny app
+
 CMD ["R", "-e", "shiny::runApp('/usr/src/app', host='0.0.0.0', port=3838)"]
 
 
